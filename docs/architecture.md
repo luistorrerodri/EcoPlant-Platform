@@ -19,7 +19,7 @@ Esta decisión se tomó desde el inicio del proyecto, no como una refactorizaci�
    - Alimenta los gauges del dashboard en tiempo real.
    - Evalúa si toca regar, comparando la humedad recibida contra la configuración guardada (umbral, franja horaria, tiempo desde el último riego automático).
 4. Si la evaluación decide regar, Node-RED publica `REGAR` en `maceteros/{device_id}/comando`, construyendo el topic dinámicamente a partir del dispositivo que originó la lectura.
-5. El ESP32, suscrito a ese topic, activa el relé de la bomba durante un tiempo fijo al recibir el comando — sin evaluar nada, solo ejecuta.
+5. El ESP32, suscrito a ese topic, activa el relé de la bomba durante un tiempo fijo al recibir el comando — sin evaluar nada, solo ejecuta — y publica una confirmación en su topic de estado al terminar.
 6. En paralelo, un botón en el dashboard permite publicar el mismo comando manualmente, reutilizando exactamente el mismo camino que el riego automático.
 
 ## Por qué estas tecnologías
@@ -37,11 +37,29 @@ Esta decisión se tomó desde el inicio del proyecto, no como una refactorizaci�
 ```
 maceteros/{device_id}/sensores    → publica el ESP32, escucha la plataforma
 maceteros/{device_id}/comando     → publica la plataforma, escucha el ESP32
+maceteros/{device_id}/estado      → publica el ESP32 (presencia y confirmaciones)
 ```
 
-El `device_id` se define en el firmware con un único `#define`, a partir del cual se construyen ambos topics y el identificador de cliente MQTT. Desplegar el mismo firmware en un dispositivo nuevo requiere cambiar esa única línea.
+El `device_id` se define en el firmware con un único `#define`, a partir del cual se construyen los topics y el identificador de cliente MQTT. Desplegar el mismo firmware en un dispositivo nuevo requiere cambiar esa única línea.
 
-La plataforma se suscribe con el comodín `maceteros/+/sensores`, de modo que recibe automáticamente los datos de cualquier dispositivo nuevo sin cambios de configuración. El `device_id` se extrae del propio payload (el firmware lo incluye) o, como respaldo, del segundo nivel del topic.
+La plataforma se suscribe con los comodines `maceteros/+/sensores` y `maceteros/+/estado`, de modo que recibe automáticamente los datos de cualquier dispositivo nuevo sin cambios de configuración. El `device_id` se extrae del propio payload (el firmware lo incluye) o, como respaldo, del segundo nivel del topic.
+
+## Ciclo cerrado de riego
+
+La orden de riego no se considera cumplida hasta que el dispositivo lo confirma:
+
+1. La plataforma publica `REGAR` en el topic de comando del dispositivo.
+2. El ESP32 acciona el relé y, al terminar, publica en su topic de estado un evento `riego_completado` con la duración real medida.
+3. La plataforma registra ese evento como el último riego efectivo del dispositivo.
+4. La condición de "han pasado 24 h desde el último riego" se evalúa contra la **confirmación**, no contra la orden.
+
+La consecuencia práctica es que si un dispositivo está apagado o no responde, la plataforma no da el riego por hecho y lo reintentará cuando vuelva a estar disponible. Para evitar que ese reintento se convierta en una ráfaga de órdenes, existe además una ventana mínima de 60 segundos entre comandos consecutivos al mismo dispositivo, independiente de la confirmación.
+
+### Detección de presencia (LWT)
+
+Al conectarse, cada dispositivo registra en el broker un mensaje *Last Will and Testament*: si la conexión se pierde de forma abrupta (corte de alimentación, cuelgue, pérdida de WiFi), el propio broker publica `{"online": false}` en el topic de estado del dispositivo. Tras una conexión exitosa, el dispositivo publica `{"online": true}`.
+
+Ambos mensajes se publican con el flag *retained*, de modo que cualquier suscriptor que se conecte después conoce inmediatamente el estado actual de cada dispositivo sin esperar al siguiente mensaje.
 
 ## Modelo de datos en InfluxDB
 
@@ -74,6 +92,6 @@ Esta estructura, indexada por dispositivo desde el primer momento aunque hoy sol
 
 - La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
 - No hay autenticación en el broker MQTT (`allow_anonymous true`) ni en el acceso a Node-RED/Grafana — aceptable en red local aislada, pero es el primer bloqueante a resolver antes de exponer la plataforma a internet.
-- El pulso de riego en el firmware sigue siendo bloqueante (`delay()`): durante los segundos que dura el riego, el ESP32 no procesa mensajes MQTT entrantes. Migrar a una implementación no bloqueante basada en `millis()` está pendiente.
-- No existe realimentación del dispositivo hacia la plataforma tras ejecutar un comando: Node-RED publica `REGAR` y asume que se ejecutó, sin confirmación. Un topic de estado (`maceteros/{device_id}/estado`) con confirmación de riego y *Last Will and Testament* para detectar desconexiones es el siguiente paso natural.
+- El pulso de riego en el firmware sigue siendo bloqueante (`delay()`): durante los segundos que dura el riego, el ESP32 no procesa mensajes MQTT entrantes. Esto provocó, durante el desarrollo, que varias órdenes se encolaran en el broker y se ejecutaran en cadena al terminar el primer riego. Se mitigó con una ventana de bloqueo en la plataforma, pero la solución de fondo es un riego no bloqueante basado en `millis()`.
+- Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy (la planta tiene agua, sin importar quién lo ordenara), pero convendría diferenciarlo si en el futuro se quieren políticas distintas.
 - No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego.

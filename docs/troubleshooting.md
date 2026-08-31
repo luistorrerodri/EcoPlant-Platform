@@ -148,7 +148,23 @@ Adicionalmente, los datos anteriores al cambio conservan el tag antiguo, por lo 
 
 ---
 
-## 9. Riego automático duplicado entre firmware y plataforma
+## 9. Riegos en ráfaga al introducir la confirmación del dispositivo
+
+**Síntoma**: al cambiar la lógica para que el contador de "último riego" dependiera de la confirmación del dispositivo en lugar de la orden enviada, el sistema empezó a regar de forma repetida cada pocos segundos.
+
+**Diagnóstico**: dos causas encadenadas.
+
+La primera fue de secuencia: el cambio se aplicó en la plataforma **antes** de flashear el firmware que envía las confirmaciones. Sin confirmaciones, el registro de último riego permanecía a cero, la condición "han pasado más de 24 h" se cumplía siempre, y cada lectura de sensores disparaba una orden nueva.
+
+La segunda persistió incluso con el firmware correcto: como el riego en el ESP32 es bloqueante (`delay()` de 9 segundos), durante ese tiempo el dispositivo no procesa MQTT. Las órdenes que la plataforma seguía emitiendo se acumulaban en el broker y se ejecutaban en cadena al terminar el primer riego. La confirmación llegaba demasiado tarde para frenar las que ya estaban en camino.
+
+**Solución**: añadir en la plataforma una ventana mínima de 60 segundos entre órdenes consecutivas al mismo dispositivo, registrada en el momento de emitir el comando y evaluada antes de emitir el siguiente. A diferencia de la confirmación, esta guarda protege aunque el dispositivo no responda nunca.
+
+**Aprendizaje**: en un sistema distribuido, condicionar una acción a la respuesta de otro componente introduce una ventana temporal en la que la acción puede repetirse. Hace falta una protección local (idempotencia, ventana de bloqueo o límite de reintentos) que no dependa de que la otra parte responda. Y en migraciones que afectan a dos componentes a la vez, el orden importa: el que emite debe actualizarse después del que responde, no antes.
+
+---
+
+## 10. Riego automático duplicado entre firmware y plataforma
 
 **Síntoma**: no llegó a manifestarse como fallo en producción, pero se detectó durante la migración de la lógica al servidor.
 

@@ -8,6 +8,8 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 
 - Mide humedad de suelo, temperatura y presión atmosférica en tiempo real
 - Decide automáticamente cuándo regar según un umbral y una franja horaria configurables, **sin que la lógica viva en el microcontrolador**
+- Verifica que cada orden de riego se ha ejecutado realmente, en lugar de asumirlo
+- Detecta cuándo un dispositivo se desconecta de forma inesperada
 - Permite riego manual bajo demanda desde un dashboard web
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
@@ -18,6 +20,7 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 ESP32 (sensores + bomba)
         │  maceteros/{device_id}/sensores
         │  maceteros/{device_id}/comando
+        │  maceteros/{device_id}/estado
         ▼
    Mosquitto (broker MQTT)
         │
@@ -57,7 +60,8 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Lógica de decisión de riego migrada completamente al servidor
 - [x] Estructura de topics escalable para múltiples dispositivos (`device_id` dinámico)
 - [x] Configuración persistente entre reinicios de la plataforma
-- [ ] Confirmación de ejecución del dispositivo hacia la plataforma (topic de estado + LWT)
+- [x] Ciclo cerrado: el dispositivo confirma cada riego ejecutado
+- [x] Detección de dispositivos desconectados (MQTT Last Will and Testament)
 - [ ] Riego no bloqueante en el firmware
 - [ ] Autenticación multi-usuario y acceso remoto seguro
 - [ ] App móvil
