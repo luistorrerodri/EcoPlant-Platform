@@ -62,7 +62,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Configuración persistente entre reinicios de la plataforma
 - [x] Ciclo cerrado: el dispositivo confirma cada riego ejecutado
 - [x] Detección de dispositivos desconectados (MQTT Last Will and Testament)
-- [ ] Riego no bloqueante en el firmware
+- [x] Firmware no bloqueante: el dispositivo sigue operativo durante el riego
 - [ ] Autenticación multi-usuario y acceso remoto seguro
 - [ ] App móvil
 - [ ] Integración meteorológica y modelo de aprendizaje sobre el histórico

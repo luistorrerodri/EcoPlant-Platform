@@ -61,6 +61,18 @@ Al conectarse, cada dispositivo registra en el broker un mensaje *Last Will and 
 
 Ambos mensajes se publican con el flag *retained*, de modo que cualquier suscriptor que se conecte después conoce inmediatamente el estado actual de cada dispositivo sin esperar al siguiente mensaje.
 
+## Diseño del firmware
+
+El `loop()` del ESP32 no bloquea en ningún punto de su operación normal. El riego se implementa como una pequeña máquina de estados basada en `millis()`:
+
+- Al recibir un comando, se activa el relé y se registra el instante de inicio.
+- En cada vuelta del `loop()` se comprueba si ha transcurrido la duración configurada; si es así, se apaga el relé y se publica la confirmación.
+- Una orden que llegue mientras hay un riego en curso se descarta, en lugar de encolarse.
+
+La consecuencia es que durante el riego el dispositivo sigue publicando lecturas, procesando mensajes MQTT y manteniendo su conexión. La implementación anterior, basada en `delay()`, dejaba al ESP32 insensible durante todo el pulso de riego, lo que provocó que las órdenes se acumularan en el broker y se ejecutaran en cadena (ver [`troubleshooting.md`](troubleshooting.md#9-riegos-en-ráfaga-al-introducir-la-confirmación-del-dispositivo)).
+
+Adicionalmente existe un tope de seguridad por hardware lógico: la duración efectiva del riego se acota a un máximo absoluto, de modo que un valor de configuración erróneo no puede dejar la bomba encendida indefinidamente.
+
 ## Modelo de datos en InfluxDB
 
 - **Measurement**: `sensores`
@@ -92,6 +104,6 @@ Esta estructura, indexada por dispositivo desde el primer momento aunque hoy sol
 
 - La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
 - No hay autenticación en el broker MQTT (`allow_anonymous true`) ni en el acceso a Node-RED/Grafana — aceptable en red local aislada, pero es el primer bloqueante a resolver antes de exponer la plataforma a internet.
-- El pulso de riego en el firmware sigue siendo bloqueante (`delay()`): durante los segundos que dura el riego, el ESP32 no procesa mensajes MQTT entrantes. Esto provocó, durante el desarrollo, que varias órdenes se encolaran en el broker y se ejecutaran en cadena al terminar el primer riego. Se mitigó con una ventana de bloqueo en la plataforma, pero la solución de fondo es un riego no bloqueante basado en `millis()`.
 - Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy (la planta tiene agua, sin importar quién lo ordenara), pero convendría diferenciarlo si en el futuro se quieren políticas distintas.
-- No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego.
+- No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego. Es la principal carencia funcional: la bomba puede llegar a trabajar en seco.
+- La calibración del sensor de humedad está fijada en el firmware. Recalibrar exige recompilar y flashear, cuando conceptualmente es un parámetro de configuración más y debería vivir en la plataforma.
