@@ -1,0 +1,4 @@
+secrets.h
+*.h.bak
+.pio/
+.vscode/
