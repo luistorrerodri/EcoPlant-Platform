@@ -16,9 +16,10 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 
 ```
 ESP32 (sensores + bomba)
-        │  MQTT (WiFi)
+        │  maceteros/{device_id}/sensores
+        │  maceteros/{device_id}/comando
         ▼
-   Mosquitto (broker)
+   Mosquitto (broker MQTT)
         │
         ▼
      Node-RED  ──────────────┐
@@ -54,7 +55,10 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Pipeline completo de datos: ESP32 → MQTT → Node-RED → InfluxDB → Grafana
 - [x] Dashboard de control: riego manual, umbral y horario configurables en caliente
 - [x] Lógica de decisión de riego migrada completamente al servidor
-- [ ] Estructura de topics escalable para múltiples dispositivos (`device_id` dinámico)
+- [x] Estructura de topics escalable para múltiples dispositivos (`device_id` dinámico)
+- [x] Configuración persistente entre reinicios de la plataforma
+- [ ] Confirmación de ejecución del dispositivo hacia la plataforma (topic de estado + LWT)
+- [ ] Riego no bloqueante en el firmware
 - [ ] Autenticación multi-usuario y acceso remoto seguro
 - [ ] App móvil
 - [ ] Integración meteorológica y modelo de aprendizaje sobre el histórico

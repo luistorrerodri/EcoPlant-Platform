@@ -132,7 +132,23 @@ El código compilaba correctamente y la conexión inicial con el chip se estable
 
 ---
 
-## 8. Riego automático duplicado entre firmware y plataforma
+## 8. Series fragmentadas en InfluxDB por modelar un valor cambiante como tag
+
+**Síntoma**: en Grafana, la gráfica de humedad de suelo aparecía cortada en múltiples segmentos de colores distintos, en lugar de como una línea continua. La leyenda mostraba entradas separadas del tipo `humedad_suelo {device_id="macetero01", estado="SECO"}`, `... estado="HUMEDO"`, etc.
+
+**Diagnóstico**: `estado` se había modelado como **tag** en InfluxDB. En una base de datos de series temporales, cada combinación única de tags define una serie independiente, de modo que un valor que cambia con frecuencia genera tantas series como valores distintos pueda tomar. Cada vez que la planta pasaba de `SECO` a `HUMEDO`, la primera serie dejaba de recibir puntos y arrancaba otra: de ahí las líneas cortadas.
+
+**Solución**: mover `estado` de tag a field, dejando `device_id` como único tag. Además de resolver la fragmentación, es lo correcto conceptualmente: `estado` es un valor derivado de `humedad_suelo` mediante umbrales, no un metadato del dispositivo.
+
+**Efecto secundario durante la migración**: al aplicar el cambio, la consulta en el Data Explorer dejó de devolver datos con el error `unsupported input type for mean aggregate: string`. La causa era que `estado`, ahora field de tipo texto, estaba incluido en una consulta cuya función de agregación era `mean` — no se puede promediar una cadena. Al deseleccionarlo de los campos consultados, la consulta volvió a funcionar.
+
+Adicionalmente, los datos anteriores al cambio conservan el tag antiguo, por lo que durante un tiempo conviven ambos esquemas en el mismo bucket. Filtrar por `estado` en el Data Explorer devolvía únicamente los datos históricos, dando la falsa impresión de que la ingesta se había detenido.
+
+**Aprendizaje**: la regla práctica es sencilla — si vas a **filtrar o agrupar** por un valor y es estable, es un tag; si vas a **graficarlo o agregarlo** y cambia con cada lectura, es un field. Modelar mal esta distinción no da un error inmediato, pero degrada las consultas y, a escala, el rendimiento por explosión de cardinalidad.
+
+---
+
+## 9. Riego automático duplicado entre firmware y plataforma
 
 **Síntoma**: no llegó a manifestarse como fallo en producción, pero se detectó durante la migración de la lógica al servidor.
 
