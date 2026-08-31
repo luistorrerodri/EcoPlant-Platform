@@ -1,5 +1,544 @@
 [
     {
+        "id": "8627a5733f13f310",
+        "type": "tab",
+        "label": "Flujo 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "3aa9676a5b88f14a",
+        "type": "group",
+        "z": "8627a5733f13f310",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "548e24a4d662b7d7",
+            "426211dd085bcf16",
+            "fe139f400865f025",
+            "cc35121cf054f4b2",
+            "504a9faa68cf03c9",
+            "c5bdbaa1b8a36cd3",
+            "57ac9b30de1027a9",
+            "633a82bdc39b77e3",
+            "b32c4dd6d2e5a779",
+            "9d9ba91cafaf417a",
+            "d5de4f66e5f10b1a",
+            "102f974ae39ce9b1",
+            "b92a9a588b96c741",
+            "39bc0b0d71bd0311",
+            "1cd7e73bd85fc38d",
+            "f1a4061418975b65"
+        ],
+        "x": -26,
+        "y": 639,
+        "w": 1092,
+        "h": 402
+    },
+    {
+        "id": "e58f948b6179699c",
+        "type": "group",
+        "z": "8627a5733f13f310",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "6cbe5bcf9e5b8702",
+            "3d199dae3fd49796",
+            "a4d05d80278e289f",
+            "d8fb374492002586"
+        ],
+        "x": 154,
+        "y": 399,
+        "w": 852,
+        "h": 82
+    },
+    {
+        "id": "ef6ac824f908c327",
+        "type": "group",
+        "z": "8627a5733f13f310",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "3637f4e768130573",
+            "c01bae0874f2a452",
+            "bbf9e403ff180c41",
+            "0e8947eb66e1092d",
+            "8eac81157e34c2f2"
+        ],
+        "x": 174,
+        "y": 199,
+        "w": 832,
+        "h": 142
+    },
+    {
+        "id": "9122e117ea42fd25",
+        "type": "group",
+        "z": "8627a5733f13f310",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "369c4d2391adf8db",
+            "18d836f016d9f605"
+        ],
+        "x": 334,
+        "y": 519,
+        "w": 392,
+        "h": 82
+    },
+    {
+        "id": "3f00c4b8d0ee2468",
+        "type": "group",
+        "z": "8627a5733f13f310",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "7fad237b01ef932f",
+            "12ceb97fec943e58",
+            "7e48714e9404697c"
+        ],
+        "x": 254,
+        "y": 79,
+        "w": 632,
+        "h": 82
+    },
+    {
+        "id": "85d22fc9d1c2c37a",
+        "type": "mqtt-broker",
+        "name": "planta_datos",
+        "broker": "192.168.1.140",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "8063f1beeed36a4f",
+        "type": "ui_tab",
+        "name": "Monstera",
+        "icon": "dashboard",
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "b32452c65a9faa9c",
+        "type": "ui_base",
+        "theme": {
+            "name": "theme-light",
+            "lightTheme": {
+                "default": "#0094CE",
+                "baseColor": "#0094CE",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "darkTheme": {
+                "default": "#097479",
+                "baseColor": "#097479",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif",
+                "edited": false
+            },
+            "customTheme": {
+                "name": "Untitled Theme 1",
+                "default": "#4B7930",
+                "baseColor": "#4B7930",
+                "baseFont": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+            },
+            "themeState": {
+                "base-color": {
+                    "default": "#0094CE",
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-titlebar-backgroundColor": {
+                    "value": "#0094CE",
+                    "edited": false
+                },
+                "page-backgroundColor": {
+                    "value": "#fafafa",
+                    "edited": false
+                },
+                "page-sidebar-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-textColor": {
+                    "value": "#1bbfff",
+                    "edited": false
+                },
+                "group-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "group-backgroundColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "widget-textColor": {
+                    "value": "#111111",
+                    "edited": false
+                },
+                "widget-backgroundColor": {
+                    "value": "#0094ce",
+                    "edited": false
+                },
+                "widget-borderColor": {
+                    "value": "#ffffff",
+                    "edited": false
+                },
+                "base-font": {
+                    "value": "-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Oxygen-Sans,Ubuntu,Cantarell,Helvetica Neue,sans-serif"
+                }
+            },
+            "angularTheme": {
+                "primary": "indigo",
+                "accents": "blue",
+                "warn": "red",
+                "background": "grey",
+                "palette": "light"
+            }
+        },
+        "site": {
+            "name": "Node-RED Dashboard",
+            "hideToolbar": "false",
+            "allowSwipe": "false",
+            "lockMenu": "false",
+            "allowTempTheme": "true",
+            "dateFormat": "DD/MM/YYYY",
+            "sizes": {
+                "sx": 48,
+                "sy": 48,
+                "gx": 6,
+                "gy": 6,
+                "cx": 6,
+                "cy": 6,
+                "px": 0,
+                "py": 0
+            }
+        }
+    },
+    {
+        "id": "ce45fe97c4b35a4d",
+        "type": "ui_group",
+        "name": "Monstera",
+        "tab": "8063f1beeed36a4f",
+        "order": 1,
+        "disp": true,
+        "width": 6,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "ae6b0de6089c8785",
+        "type": "influxdb",
+        "hostname": "http://localhost:8086",
+        "port": 8086,
+        "protocol": "http",
+        "database": "database",
+        "name": "sensores",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "http://localhost:8086",
+        "timeout": 10,
+        "rejectUnauthorized": true
+    },
+    {
+        "id": "548e24a4d662b7d7",
+        "type": "mqtt in",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "topic": "maceteros/+/sensores",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "85d22fc9d1c2c37a",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 100,
+        "y": 840,
+        "wires": [
+            [
+                "426211dd085bcf16"
+            ]
+        ]
+    },
+    {
+        "id": "426211dd085bcf16",
+        "type": "json",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 270,
+        "y": 840,
+        "wires": [
+            [
+                "fe139f400865f025",
+                "b32c4dd6d2e5a779",
+                "102f974ae39ce9b1"
+            ]
+        ]
+    },
+    {
+        "id": "fe139f400865f025",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "Recibir data sensor",
+        "func": "return [\n    { payload: msg.payload.temp_aire },\n    { payload: msg.payload.humedad_suelo },\n    { payload: msg.payload.estado },\n    { payload: msg.payload.presion }\n];",
+        "outputs": 4,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 450,
+        "y": 840,
+        "wires": [
+            [
+                "cc35121cf054f4b2"
+            ],
+            [
+                "57ac9b30de1027a9",
+                "504a9faa68cf03c9"
+            ],
+            [
+                "633a82bdc39b77e3"
+            ],
+            [
+                "b92a9a588b96c741"
+            ]
+        ]
+    },
+    {
+        "id": "cc35121cf054f4b2",
+        "type": "ui_gauge",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Temperatura Aire",
+        "label": "ºC",
+        "format": "{{msg.payload}}",
+        "min": "-10",
+        "max": "50",
+        "colors": [
+            "#3600b3",
+            "#00e62e",
+            "#fbb046"
+        ],
+        "seg1": "10",
+        "seg2": "35",
+        "diff": false,
+        "className": "",
+        "x": 750,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "504a9faa68cf03c9",
+        "type": "ui_gauge",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 3,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Humedad Suelo",
+        "label": "%",
+        "format": "{{msg.payload}}",
+        "min": 0,
+        "max": "100",
+        "colors": [
+            "#f3cd12",
+            "#04f62c",
+            "#3482d5"
+        ],
+        "seg1": "30",
+        "seg2": "70",
+        "diff": false,
+        "className": "",
+        "x": 740,
+        "y": 860,
+        "wires": []
+    },
+    {
+        "id": "c5bdbaa1b8a36cd3",
+        "type": "ui_text",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "group": "ce45fe97c4b35a4d",
+        "order": 5,
+        "width": 0,
+        "height": 0,
+        "name": "",
+        "label": "Estado Monstera",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": 16,
+        "color": "#000000",
+        "x": 950,
+        "y": 940,
+        "wires": []
+    },
+    {
+        "id": "57ac9b30de1027a9",
+        "type": "ui_chart",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "label": "Histórico Humedad Suelo",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "dd HH:mm",
+        "interpolate": "linear",
+        "nodata": "",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "100",
+        "removeOlder": 1,
+        "removeOlderPoints": "",
+        "removeOlderUnit": "604800",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "useDifferentColor": false,
+        "className": "",
+        "x": 770,
+        "y": 900,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "633a82bdc39b77e3",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "Estados Planta",
+        "func": "let estado = msg.payload;\n\nif (estado === \"SECO\") {\n    msg.payload = \"🔴 SECO\";\n}\nelse if (estado === \"NECESITA_RIEGO\") {\n    msg.payload = \"🟠 NECESITA RIEGO\";\n}\nelse if (estado === \"OK\") {\n    msg.payload = \"🟢 OK\";\n}\nelse {\n    msg.payload = \"🔵 HUMEDO\";\n}\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 740,
+        "y": 940,
+        "wires": [
+            [
+                "c5bdbaa1b8a36cd3"
+            ]
+        ]
+    },
+    {
+        "id": "b32c4dd6d2e5a779",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "Formatear para InfluxDB",
+        "func": "msg.payload = [\n    {\n        humedad_suelo: msg.payload.humedad_suelo,\n        temp_aire: msg.payload.temp_aire,\n        presion: msg.payload.presion,\n        estado: msg.payload.estado\n    },\n    {\n        device_id: msg.payload.device_id || msg.topic.split('/')[1]\n    }\n];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 760,
+        "wires": [
+            [
+                "9d9ba91cafaf417a",
+                "d5de4f66e5f10b1a"
+            ]
+        ]
+    },
+    {
         "id": "9d9ba91cafaf417a",
         "type": "influxdb out",
         "z": "8627a5733f13f310",
@@ -19,25 +558,725 @@
         "wires": []
     },
     {
-        "id": "ae6b0de6089c8785",
-        "type": "influxdb",
-        "hostname": "http://localhost:8086",
-        "port": 8086,
-        "protocol": "http",
-        "database": "database",
-        "name": "sensores",
-        "usetls": false,
-        "tls": "",
-        "influxdbVersion": "2.0",
-        "url": "http://localhost:8086",
-        "timeout": 10,
-        "rejectUnauthorized": true
+        "id": "d5de4f66e5f10b1a",
+        "type": "debug",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 680,
+        "wires": []
     },
     {
-        "id": "ca4ebe47ce49fcdd",
+        "id": "369c4d2391adf8db",
+        "type": "ui_button",
+        "z": "8627a5733f13f310",
+        "g": "9122e117ea42fd25",
+        "name": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 6,
+        "width": 0,
+        "height": 0,
+        "passthru": false,
+        "label": "Regar Ahora",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "REGAR",
+        "payloadType": "str",
+        "topic": "maceteros/macetero01/comando",
+        "topicType": "str",
+        "x": 430,
+        "y": 560,
+        "wires": [
+            [
+                "18d836f016d9f605"
+            ]
+        ]
+    },
+    {
+        "id": "18d836f016d9f605",
+        "type": "mqtt out",
+        "z": "8627a5733f13f310",
+        "g": "9122e117ea42fd25",
+        "name": "",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "85d22fc9d1c2c37a",
+        "x": 650,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "7fad237b01ef932f",
+        "type": "inject",
+        "z": "8627a5733f13f310",
+        "g": "3f00c4b8d0ee2468",
+        "name": "Inicializar config",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "12ceb97fec943e58"
+            ]
+        ]
+    },
+    {
+        "id": "12ceb97fec943e58",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3f00c4b8d0ee2468",
+        "name": "Init config maceteros",
+        "func": "let config = global.get('config_maceteros') || {};\n\nif (!config.macetero01) {\n    config.macetero01 = {\n        humedadMin: 36,\n        horaInicio: 8,\n        horaFin: 21,\n        duracionRiegoMs: 9000\n    };\n    global.set('config_maceteros', config);\n    node.warn('Config inicial creada para macetero01');\n} else {\n    node.warn('Config ya existía, no se sobreescribe');\n}\n\nmsg.payload = global.get('config_maceteros');\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 120,
+        "wires": [
+            [
+                "7e48714e9404697c"
+            ]
+        ]
+    },
+    {
+        "id": "7e48714e9404697c",
+        "type": "debug",
+        "z": "8627a5733f13f310",
+        "g": "3f00c4b8d0ee2468",
+        "name": "debug 2",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 780,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "6cbe5bcf9e5b8702",
+        "type": "ui_slider",
+        "z": "8627a5733f13f310",
+        "g": "e58f948b6179699c",
+        "name": "",
+        "label": "Umbral de riego (%)",
+        "tooltip": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 7,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "outs": "end",
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "100",
+        "step": 1,
+        "className": "",
+        "x": 700,
+        "y": 440,
+        "wires": [
+            [
+                "3d199dae3fd49796"
+            ]
+        ]
+    },
+    {
+        "id": "3d199dae3fd49796",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "e58f948b6179699c",
+        "name": "Guardar Umbral",
+        "func": "let config = global.get('config_maceteros') || {};\n\nif (!config.macetero01) config.macetero01 = {};\nconfig.macetero01.humedadMin = msg.payload;\n\nglobal.set('config_maceteros', config);\n\nnode.status({fill:\"green\", shape:\"dot\", text:\"umbral: \" + msg.payload + \"%\"});\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 440,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "a4d05d80278e289f",
+        "type": "inject",
+        "z": "8627a5733f13f310",
+        "g": "e58f948b6179699c",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 280,
+        "y": 440,
+        "wires": [
+            [
+                "d8fb374492002586"
+            ]
+        ]
+    },
+    {
+        "id": "d8fb374492002586",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "e58f948b6179699c",
+        "name": "Leer umbral actual",
+        "func": "let config = global.get('config_maceteros') || {};\nmsg.payload = config.macetero01 ? config.macetero01.humedadMin : 36;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 440,
+        "wires": [
+            [
+                "6cbe5bcf9e5b8702"
+            ]
+        ]
+    },
+    {
+        "id": "3637f4e768130573",
+        "type": "ui_dropdown",
+        "z": "8627a5733f13f310",
+        "g": "ef6ac824f908c327",
+        "name": "",
+        "label": "Hora inicio riego",
+        "tooltip": "",
+        "place": "Select option",
+        "group": "ce45fe97c4b35a4d",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "0:00",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "1:00",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "2:00",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "3:00",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "4:00",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "5:00",
+                "value": 5,
+                "type": "num"
+            },
+            {
+                "label": "6:00",
+                "value": 6,
+                "type": "num"
+            },
+            {
+                "label": "7:00",
+                "value": 7,
+                "type": "num"
+            },
+            {
+                "label": "8:00",
+                "value": 8,
+                "type": "num"
+            },
+            {
+                "label": "9:00",
+                "value": 9,
+                "type": "num"
+            },
+            {
+                "label": "10:00",
+                "value": 10,
+                "type": "num"
+            },
+            {
+                "label": "11:00",
+                "value": 11,
+                "type": "num"
+            },
+            {
+                "label": "12:00",
+                "value": 12,
+                "type": "num"
+            },
+            {
+                "label": "13:00",
+                "value": 13,
+                "type": "num"
+            },
+            {
+                "label": "14:00",
+                "value": 14,
+                "type": "num"
+            },
+            {
+                "label": "15:00",
+                "value": 15,
+                "type": "num"
+            },
+            {
+                "label": "16:00",
+                "value": 16,
+                "type": "num"
+            },
+            {
+                "label": "17:00",
+                "value": 17,
+                "type": "num"
+            },
+            {
+                "label": "18:00",
+                "value": 18,
+                "type": "num"
+            },
+            {
+                "label": "19:00",
+                "value": 19,
+                "type": "num"
+            },
+            {
+                "label": "20:00",
+                "value": 20,
+                "type": "num"
+            },
+            {
+                "label": "21:00",
+                "value": 21,
+                "type": "num"
+            },
+            {
+                "label": "22:00",
+                "value": 22,
+                "type": "num"
+            },
+            {
+                "label": "23:00",
+                "value": 23,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "horaInicio",
+        "topicType": "str",
+        "className": "",
+        "x": 680,
+        "y": 240,
+        "wires": [
+            [
+                "bbf9e403ff180c41"
+            ]
+        ]
+    },
+    {
+        "id": "c01bae0874f2a452",
+        "type": "ui_dropdown",
+        "z": "8627a5733f13f310",
+        "g": "ef6ac824f908c327",
+        "name": "",
+        "label": "Hora fin riego",
+        "tooltip": "",
+        "place": "Select option",
+        "group": "ce45fe97c4b35a4d",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "passthru": true,
+        "multiple": false,
+        "options": [
+            {
+                "label": "0:00",
+                "value": 0,
+                "type": "num"
+            },
+            {
+                "label": "1:00",
+                "value": 1,
+                "type": "num"
+            },
+            {
+                "label": "2:00",
+                "value": 2,
+                "type": "num"
+            },
+            {
+                "label": "3:00",
+                "value": 3,
+                "type": "num"
+            },
+            {
+                "label": "4:00",
+                "value": 4,
+                "type": "num"
+            },
+            {
+                "label": "5:00",
+                "value": 5,
+                "type": "num"
+            },
+            {
+                "label": "6:00",
+                "value": 6,
+                "type": "num"
+            },
+            {
+                "label": "7:00",
+                "value": 7,
+                "type": "num"
+            },
+            {
+                "label": "8:00",
+                "value": 8,
+                "type": "num"
+            },
+            {
+                "label": "9:00",
+                "value": 9,
+                "type": "num"
+            },
+            {
+                "label": "10:00",
+                "value": 10,
+                "type": "num"
+            },
+            {
+                "label": "11:00",
+                "value": 11,
+                "type": "num"
+            },
+            {
+                "label": "12:00",
+                "value": 12,
+                "type": "num"
+            },
+            {
+                "label": "13:00",
+                "value": 13,
+                "type": "num"
+            },
+            {
+                "label": "14:00",
+                "value": 14,
+                "type": "num"
+            },
+            {
+                "label": "15:00",
+                "value": 15,
+                "type": "num"
+            },
+            {
+                "label": "16:00",
+                "value": 16,
+                "type": "num"
+            },
+            {
+                "label": "17:00",
+                "value": 17,
+                "type": "num"
+            },
+            {
+                "label": "18:00",
+                "value": 18,
+                "type": "num"
+            },
+            {
+                "label": "19:00",
+                "value": 19,
+                "type": "num"
+            },
+            {
+                "label": "20:00",
+                "value": 20,
+                "type": "num"
+            },
+            {
+                "label": "21:00",
+                "value": 21,
+                "type": "num"
+            },
+            {
+                "label": "22:00",
+                "value": 22,
+                "type": "num"
+            },
+            {
+                "label": "23:00",
+                "value": 23,
+                "type": "num"
+            }
+        ],
+        "payload": "",
+        "topic": "horaFin",
+        "topicType": "str",
+        "className": "",
+        "x": 680,
+        "y": 300,
+        "wires": [
+            [
+                "bbf9e403ff180c41"
+            ]
+        ]
+    },
+    {
+        "id": "bbf9e403ff180c41",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "ef6ac824f908c327",
+        "name": "Guardar horario",
+        "func": "let config = global.get('config_maceteros') || {};\nif (!config.macetero01) config.macetero01 = {};\n\nif (msg.topic === \"horaInicio\") {\n    config.macetero01.horaInicio = msg.payload;\n} else if (msg.topic === \"horaFin\") {\n    config.macetero01.horaFin = msg.payload;\n}\n\nglobal.set('config_maceteros', config);\nnode.status({ fill: \"green\", shape: \"dot\", text: \"inicio:\" + config.macetero01.horaInicio + \" fin:\" + config.macetero01.horaFin });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 260,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "0e8947eb66e1092d",
+        "type": "inject",
+        "z": "8627a5733f13f310",
+        "g": "ef6ac824f908c327",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 300,
+        "y": 260,
+        "wires": [
+            [
+                "8eac81157e34c2f2"
+            ]
+        ]
+    },
+    {
+        "id": "8eac81157e34c2f2",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "ef6ac824f908c327",
+        "name": "Leer horario actual",
+        "func": "let config = global.get('config_maceteros') || {};\nlet horario = config.macetero01 || { horaInicio: 8, horaFin: 21 };\n\nlet msgInicio = { payload: horario.horaInicio, topic: \"horaInicio\" };\nlet msgFin = { payload: horario.horaFin, topic: \"horaFin\" };\n\nreturn [msgInicio, msgFin];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 490,
+        "y": 260,
+        "wires": [
+            [
+                "3637f4e768130573"
+            ],
+            [
+                "c01bae0874f2a452"
+            ]
+        ]
+    },
+    {
+        "id": "102f974ae39ce9b1",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "Decisión riego",
+        "func": "let deviceId = msg.payload.device_id || msg.topic.split('/')[1];\n\nlet config = global.get('config_maceteros') || {};\nlet cfg = config[deviceId];\n\nif (!cfg) {\n    node.warn('Sin configuración para ' + deviceId + ', no se evalúa riego');\n    return null;\n}\n\nlet humedad = msg.payload.humedad_suelo;\nlet hora = new Date().getHours();\n\nlet riegosConfirmados = global.get('ultimoRiegoConfirmado') || {};\nlet ultimoRiego = riegosConfirmados[deviceId] ? riegosConfirmados[deviceId].recibidoEn : 0;\nlet horasDesdeUltimoRiego = (Date.now() - ultimoRiego) / (1000 * 60 * 60);\n\nlet dentroHorario = hora >= cfg.horaInicio && hora < cfg.horaFin;\nlet necesitaRiego = humedad < cfg.humedadMin;\nlet haPasadoTiempo = horasDesdeUltimoRiego >= 24;\n\nnode.status({\n    fill: necesitaRiego ? \"blue\" : \"grey\",\n    shape: \"dot\",\n    text: deviceId + \" \" + humedad + \"% / \" + cfg.humedadMin + \"%\"\n});\n\nlet pendientes = global.get('riegoPendiente') || {};\nlet ordenPendiente = pendientes[deviceId] || 0;\nlet segundosDesdeOrden = (Date.now() - ordenPendiente) / 1000;\n\nif (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60) {\n    pendientes[deviceId] = Date.now();\n    global.set('riegoPendiente', pendientes);\n    node.warn('RIEGO AUTO ' + deviceId + ': ' + humedad + '% < ' + cfg.humedadMin + '%');\n    return {\n        payload: \"REGAR\",\n        topic: \"maceteros/\" + deviceId + \"/comando\"\n    };\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 440,
+        "y": 680,
+        "wires": [
+            [
+                "18d836f016d9f605"
+            ]
+        ]
+    },
+    {
+        "id": "b92a9a588b96c741",
+        "type": "ui_gauge",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "group": "ce45fe97c4b35a4d",
+        "order": 8,
+        "width": 0,
+        "height": 0,
+        "gtype": "gage",
+        "title": "Presión",
+        "label": "hPa",
+        "format": "{{value}}",
+        "min": "950",
+        "max": "1050",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "",
+        "seg2": "",
+        "diff": false,
+        "className": "",
+        "x": 720,
+        "y": 980,
+        "wires": []
+    },
+    {
+        "id": "39bc0b0d71bd0311",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "Procesar estado dispositivo",
+        "func": "let deviceId = msg.topic.split('/')[1];\nlet datos = msg.payload;\n\n// Mensaje de presencia (online/offline)\nif (datos.online !== undefined) {\n    let estado = global.get('estado_dispositivos') || {};\n    estado[deviceId] = {\n        online: datos.online,\n        ultimoCambio: Date.now()\n    };\n    global.set('estado_dispositivos', estado);\n\n    node.status({\n        fill: datos.online ? \"green\" : \"red\",\n        shape: \"dot\",\n        text: deviceId + (datos.online ? \" online\" : \" OFFLINE\")\n    });\n\n    if (!datos.online) {\n        node.warn('DISPOSITIVO DESCONECTADO: ' + deviceId);\n    }\n    return null;\n}\n\n// Confirmación de riego ejecutado\nif (datos.evento === \"riego_completado\") {\n    let riegos = global.get('ultimoRiegoConfirmado') || {};\n    riegos[deviceId] = {\n        timestamp: datos.timestamp,\n        duracion_ms: datos.duracion_ms,\n        recibidoEn: Date.now()\n    };\n    global.set('ultimoRiegoConfirmado', riegos);\n\n    node.status({\n        fill: \"blue\",\n        shape: \"dot\",\n        text: \"riego confirmado \" + deviceId + \" (\" + datos.duracion_ms + \"ms)\"\n    });\n\n    node.warn('RIEGO CONFIRMADO por ' + deviceId + ': ' + datos.duracion_ms + 'ms');\n    return msg;\n}\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 940,
+        "wires": [
+            [
+                "1cd7e73bd85fc38d"
+            ]
+        ]
+    },
+    {
+        "id": "1cd7e73bd85fc38d",
+        "type": "debug",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 540,
+        "y": 1000,
+        "wires": []
+    },
+    {
+        "id": "f1a4061418975b65",
+        "type": "mqtt in",
+        "z": "8627a5733f13f310",
+        "g": "3aa9676a5b88f14a",
+        "name": "",
+        "topic": "maceteros/+/estado",
+        "qos": "2",
+        "datatype": "json",
+        "broker": "85d22fc9d1c2c37a",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 1000,
+        "wires": [
+            [
+                "39bc0b0d71bd0311"
+            ]
+        ]
+    },
+    {
+        "id": "924c89b007ebf061",
         "type": "global-config",
         "env": [],
         "modules": {
+            "node-red-dashboard": "3.6.6",
             "node-red-contrib-influxdb": "0.7.0"
         }
     }
