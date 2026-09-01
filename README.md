@@ -51,6 +51,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 | Persistencia | InfluxDB 2.x (series temporales) |
 | Visualización | Grafana + Node-RED Dashboard |
 | Servidor | Raspberry Pi (Debian Bookworm, ARM64) |
+| Acceso remoto | Caddy (proxy, solo expone `/ui`) + Cloudflare Tunnel |
 
 ## Estado actual
 
@@ -66,7 +67,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Firmware no bloqueante: el dispositivo sigue operativo durante el riego
 - [x] Seguridad: autenticación por dispositivo, ACLs por topic y MQTT sobre TLS
 - [x] Autenticación mutua (mTLS) con certificado por dispositivo
-- [ ] Acceso remoto seguro (reverse proxy con HTTPS)
+- [x] Acceso remoto seguro (reverse proxy con HTTPS): dashboard accesible desde fuera bajo demanda, sin abrir puertos en el router
 - [ ] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
 - [ ] App móvil
 - [ ] Integración meteorológica y analítica sobre el histórico

@@ -119,6 +119,15 @@ Esto resolvió además un problema anterior: la franja horaria de riego dependí
 
 Node-RED distingue dos niveles de acceso: `adminAuth` protege el editor de flujos, y `httpNodeAuth` protege el dashboard. La separación tiene sentido de producto — el usuario final debe poder consultar su planta y regar, pero no reprogramar la lógica del sistema.
 
+### Acceso remoto
+
+El dashboard puede mostrarse desde fuera de la red local bajo demanda, sin exponer nada de forma permanente. Dos decisiones deliberadas:
+
+- **Cloudflare Tunnel en vez de abrir un puerto en el router**: la Pi inicia una conexión saliente hacia Cloudflare; no hay ningún puerto escuchando conexiones entrantes desde internet en el router. Elimina de raíz la superficie de ataque típica de un port-forwarding casero (escaneos automatizados de puertos abiertos), a cambio de depender de un tercero para la ruta de acceso.
+- **Un proxy local (Caddy) delante de Node-RED, no el túnel apuntando directamente a él**: Node-RED sirve el editor, la API de administración y el dashboard bajo la misma raíz, sin una separación de rutas pensada para exponer solo una parte. Caddy filtra por ruta y solo reenvía `/ui`, devolviendo 404 a cualquier otra cosa — así, aunque alguien obtenga la URL pública, lo único alcanzable es el dashboard, nunca el editor de flujos.
+
+El servicio del túnel se levanta manualmente para cada demo (no arranca con la Pi): mientras no está corriendo, no hay nada expuesto a internet en absoluto. El coste de esa elección es que, sin un dominio propio dado de alta en Cloudflare, cada demo tiene una URL distinta e impredecible — ver [`../platform/README.md`](../platform/README.md#5-acceso-remoto-demo-pública-bajo-demanda).
+
 Grafana e InfluxDB emplean su propia autenticación, con el registro de usuarios deshabilitado y sin acceso anónimo.
 
 Las credenciales de los nodos de Node-RED se cifran con una clave propia (`credentialSecret`) en lugar de una autogenerada, de modo que una copia de seguridad de los flujos es restaurable en otra máquina.
@@ -154,7 +163,7 @@ Esta estructura, indexada por dispositivo desde el primer momento aunque hoy sol
 
 - La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
 - No hay lista de revocación (CRL): revocar un dispositivo comprometido de forma robusta exige hoy regenerar la CA, no solo quitarlo de la ACL.
-- El acceso a Node-RED, Grafana e InfluxDB es por HTTP sin cifrar. En red local aislada es asumible, pero exponerlos requiere un reverse proxy con HTTPS.
+- El acceso a Node-RED, Grafana e InfluxDB dentro de la red local es por HTTP sin cifrar — asumible por ser una red aislada. Solo el dashboard (`/ui`) sale al exterior, y lo hace vía Cloudflare Tunnel (HTTPS gestionado por Cloudflare) más un proxy local que bloquea todo lo demás; Grafana e InfluxDB nunca se exponen a internet.
 - Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy, pero convendría diferenciarlo si se quieren políticas distintas.
 - No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego. Es la principal carencia funcional: la bomba puede llegar a trabajar en seco.
 - El riego se dosifica por **tiempo**, no por volumen. Un caudalímetro permitiría dosificación volumétrica real y detectar la degradación de la bomba (menos caudal para el mismo tiempo de funcionamiento).

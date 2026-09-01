@@ -233,3 +233,32 @@ Con eso, el patrón del log (fallo casi inmediato, alerta `unknown ca` recibida 
 **Aprendizaje**: cuando un fallo de TLS aparece justo después de tocar *otra* pieza relacionada (aquí, añadir el certificado de cliente), es tentador asumir que la pieza recién tocada es la culpable. Aislar la variable — probar el certificado nuevo por separado, y luego desactivar temporalmente la función nueva para ver si el fallo persiste sin ella — evita perder tiempo depurando la parte equivocada. El código `-9984` seguía sin distinguir la causa exacta; hizo falta cruzar el log del ESP32 con el del broker (no solo mirar un lado) para saber qué certificado era el que realmente estaba fallando.
 
 **Nota sobre copiar/pegar certificados**: retranscribir manualmente un bloque PEM (por terminal o a mano) es una fuente de errores fácil de introducir y difícil de detectar a simple vista. La forma fiable es traer el archivo real al equipo (`scp`) y copiar su contenido directamente en un editor de texto, sin que el contenido pase por una reescritura intermedia.
+
+---
+
+## 14. Caddy sirviendo en TLS y bloqueando todo por el filtro de `Host`
+
+**Síntoma**: al configurar Caddy como proxy local para exponer solo `/ui` de Node-RED, dos fallos encadenados durante la puesta en marcha.
+
+Primero, cualquier petición HTTP normal (`curl http://localhost:8080/...`) devolvía `400 Bad Request` con el cuerpo `Client sent an HTTP request to an HTTPS server.`
+
+**Diagnóstico**: el bloque del `Caddyfile` empezaba con `127.0.0.1:8080 { ... }`, sin especificar esquema. Caddy asume HTTPS por defecto salvo que se le diga lo contrario, y para una dirección así (sin dominio público) lo hace sirviendo TLS con su propia CA interna autofirmada — de ahí que una petición en texto plano fuera rechazada por el propio servidor TLS antes de llegar a ninguna lógica de rutas.
+
+**Solución parcial**: anteponer el esquema explícitamente, `http://127.0.0.1:8080 { ... }`, para forzar HTTP plano sin TLS.
+
+Con eso resuelto, apareció el segundo fallo: **todas** las rutas devolvían `200` con cuerpo vacío — incluidas rutas que deberían estar bloqueadas (`/`, `/flows`) e incluso una ruta inventada que no podía coincidir con nada. El bloque `handle { respond 404 }` pensado como salida por defecto no se estaba aplicando nunca.
+
+**Diagnóstico**: preguntando directamente a la API de administración de Caddy (`curl http://localhost:2019/config/`) qué configuración tenía cargada de verdad, se confirmó que el `reload` sí se aplicaba — pero la ruta activa incluía `"match":[{"host":["127.0.0.1"]}]`. Al escribir `127.0.0.1:8080` como dirección del sitio, Caddy usa esa IP no solo para decidir en qué interfaz escuchar, sino también como **filtro sobre la cabecera `Host`** de la petición. Las pruebas se hacían con `curl http://localhost:8080/...`, que manda `Host: localhost:8080`, no `Host: 127.0.0.1` — la petición nunca coincidía con el único route definido, y caía al manejador por defecto de Caddy (200 vacío) en lugar de a los bloques `handle` configurados.
+
+**Solución**: separar la interfaz de escucha del filtrado por host con la directiva `bind`, dejando la dirección del sitio sin IP:
+
+```
+:8080 {
+	bind 127.0.0.1
+	...
+}
+```
+
+Así Caddy escucha solo en loopback (nada expuesto a la red local ni a internet salvo lo que decida reenviar `cloudflared`) sin exigir un `Host` concreto.
+
+**Aprendizaje**: cuando el comportamiento observado no cuadra con la configuración que se cree tener cargada, preguntarle directamente al proceso en marcha (aquí, la API de admin de Caddy en `:2019`) qué tiene activo de verdad ahorra mucho tiempo frente a seguir editando el archivo a ciegas — el archivo puede ser correcto y aun así no significar lo que se piensa que significa. Y una dirección de sitio en un Caddyfile no es solo "dónde escuchar": mezclar ahí una IP tiene efectos de *matching* que no son obvios a primera vista.

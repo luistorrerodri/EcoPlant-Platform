@@ -368,6 +368,104 @@ from(bucket: "macetero_iot")
 
 ---
 
+## 5. Acceso remoto (demo pública bajo demanda)
+
+El objetivo es poder enseñar el dashboard desde cualquier sitio sin exponer nada permanentemente: nada de abrir puertos en el router, nada corriendo salvo cuando se decide hacer una demo. La solución combina dos piezas:
+
+- **Caddy**, como proxy local que solo deja pasar `/ui` (el dashboard de Node-RED) y bloquea todo lo demás — el editor, la API de administración, InfluxDB, Grafana.
+- **Cloudflare Tunnel** (`cloudflared`, modo *Quick Tunnel*), que da una URL pública HTTPS sin necesidad de dominio propio ni de tocar el router: la Pi abre una conexión saliente hacia Cloudflare, nunca al revés.
+
+### Caddy
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+En `/etc/caddy/Caddyfile`:
+
+```
+:8080 {
+	bind 127.0.0.1
+
+	@dashboard path /ui /ui/*
+	handle @dashboard {
+		reverse_proxy localhost:1880
+	}
+	handle {
+		respond 404
+	}
+}
+```
+
+```bash
+sudo caddy reload --config /etc/caddy/Caddyfile
+```
+
+Dos detalles que costó descubrir (ver [`../docs/troubleshooting.md`](../docs/troubleshooting.md#14-caddy-sirviendo-en-tls-y-bloqueando-todo-por-el-filtro-de-host)):
+
+- Sin el prefijo `:8080` a secas (sin IP delante), Caddy asume HTTPS con su propia CA interna por defecto — de ahí que se use `bind 127.0.0.1` en vez de escribir `127.0.0.1:8080`, que además de fijar la interfaz de escucha, Caddy lo interpreta también como un filtro sobre la cabecera `Host`.
+- `httpNodeAuth` (usuario/contraseña del dashboard, ya configurado en Node-RED) se mantiene detrás de Caddy sin cambios — sigue pidiendo login incluso llegando por el túnel.
+
+Verificación desde la propia Pi antes de tocar el túnel:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/ui       # 401 (pide credenciales) o 200 con -u usuario:pass
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/         # 404 — el editor, bloqueado
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/flows    # 404 — la API de administración, bloqueada
+```
+
+### Cloudflare Tunnel
+
+```bash
+curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+sudo dpkg -i cloudflared.deb
+```
+
+Se deja como un servicio que se enciende y apaga a mano — **sin `enable`**, para que no arranque solo con la Pi y no quede nada expuesto salvo cuando se decide mostrar el proyecto. En `/etc/systemd/system/cloudflared-demo.service`:
+
+```ini
+[Unit]
+Description=Cloudflare Quick Tunnel (demo bajo demanda)
+After=network-online.target caddy.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:8080
+Restart=on-failure
+User=piluis
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+```
+
+**Para hacer una demo:**
+
+```bash
+sudo systemctl start cloudflared-demo
+sudo journalctl -u cloudflared-demo --no-pager -l | grep -i "trycloudflare.com"
+```
+
+La segunda línea saca la URL pública (algo como `https://palabras-al-azar.trycloudflare.com`) — cambia cada vez que se arranca el servicio, porque un *Quick Tunnel* no tiene hostname fijo (para eso haría falta un *named tunnel* con un dominio propio dado de alta en Cloudflare, ver nota abajo). Se comparte `<url>/ui`.
+
+**Para cerrarla:**
+
+```bash
+sudo systemctl stop cloudflared-demo
+```
+
+**Limitación conocida**: sin cuenta de Cloudflare ni dominio propio, la URL de cada demo es distinta e impredecible — vale para "mira, te enseño el proyecto ahora mismo", no para dejar un enlace fijo en un CV o portfolio. Si en el futuro se quiere una URL permanente, el camino es un *named tunnel* apuntando a un dominio (de pago, o uno gratuito compatible como `is-a.dev`) dado de alta como zona en Cloudflare.
+
+---
+
 ## Verificación del stack completo
 
 ```bash
