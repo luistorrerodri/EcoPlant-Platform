@@ -27,7 +27,7 @@ lib_deps =
 
 ## Configuración previa
 
-**1. Credenciales y certificado.** Copia la plantilla y rellénala:
+**1. Credenciales y certificados.** Copia la plantilla y rellénala:
 
 ```bash
 cp secrets.h.example secrets.h
@@ -37,17 +37,28 @@ cp secrets.h.example secrets.h
 #define WIFI_SSID "tu_red"
 #define WIFI_PASS "tu_contraseña"
 
-#define MQTT_USER "macetero01"
-#define MQTT_PASS "contraseña_de_este_dispositivo_en_el_broker"
-
 static const char CA_CERT[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 ...contenido de ca.crt...
 -----END CERTIFICATE-----
 )EOF";
+
+static const char CLIENT_CERT[] PROGMEM = R"EOF(
+-----BEGIN CERTIFICATE-----
+...contenido de macetero01.crt...
+-----END CERTIFICATE-----
+)EOF";
+
+static const char CLIENT_KEY[] PROGMEM = R"EOF(
+-----BEGIN PRIVATE KEY-----
+...contenido de macetero01.key...
+-----END PRIVATE KEY-----
+)EOF";
 ```
 
-El `CA_CERT` es el certificado de la autoridad certificadora que firmó el certificado del broker (`ca.crt` en el servidor). Con él, el dispositivo verifica que se conecta al broker legítimo. `PROGMEM` lo almacena en flash en lugar de RAM.
+El `CA_CERT` es el certificado de la autoridad certificadora que firmó el certificado del broker (`ca.crt` en el servidor): con él, el dispositivo verifica que se conecta al broker legítimo. `CLIENT_CERT`/`CLIENT_KEY` son el certificado de cliente de **este** dispositivo (CN = su `DEVICE_ID`), firmado por la misma CA: con ellos, el dispositivo demuestra su propia identidad al broker en el handshake TLS — es autenticación **mutua** (mTLS), y sustituye por completo al usuario/contraseña que se usaba antes. `PROGMEM` almacena los tres en flash en lugar de RAM.
+
+Generar el certificado de cliente de un dispositivo nuevo es responsabilidad de la plataforma, no del firmware — ver "Certificados de cliente (mTLS)" en [`../platform/README.md`](../platform/README.md).
 
 `secrets.h` está en `.gitignore` y no debe subirse al repositorio.
 
@@ -85,7 +96,7 @@ IP ESP32: 192.168.x.x
 Sincronizando hora por NTP
 Hora NTP: ...
 RTC actualizado desde NTP
-Conectando MQTT (TLS)... conectado
+Conectando MQTT (mTLS)... conectado
 MQTT enviado: {"device_id":"macetero01",...}
 Heap libre: 201004 | minimo historico: 191820
 ```
@@ -100,15 +111,15 @@ Los códigos de `PubSubClient` distinguen la causa:
 
 | Código | Significado | Dónde mirar |
 |---|---|---|
-| `rc=-2` | Fallo de red o de handshake TLS | IP, puerto, certificado, hora del dispositivo |
-| `rc=4` | Credenciales mal formadas | `MQTT_USER` / `MQTT_PASS` |
-| `rc=5` | No autorizado | Usuario inexistente o contraseña incorrecta en el broker |
+| `rc=-2` | Fallo de red o de handshake TLS (incluye certificado de cliente rechazado) | IP, puerto, certificado, hora del dispositivo |
+| `rc=5` | No autorizado | El CN del certificado de cliente no tiene entrada en el ACL del broker |
 
 Cuando el fallo es de TLS, la librería imprime además un código de mbedTLS. El más habitual es `-9984` (`X509 - Certificate verification failed`), que agrupa varias causas. Conviene descartarlas por orden:
 
 1. **Fecha del dispositivo**: TLS valida la vigencia del certificado. Si NTP falló y el RTC está desajustado, la verificación falla.
-2. **Cadena de firma**: comprobar en el servidor con `openssl verify -CAfile ca.crt server.crt`.
-3. **Coincidencia de nombre**: la dirección usada en `mqtt_server` debe figurar en el SAN del certificado, y como entrada de tipo DNS — mbedTLS no evalúa las entradas de tipo `iPAddress`. Ver [`../docs/troubleshooting.md`](../docs/troubleshooting.md).
+2. **Cadena de firma del servidor**: comprobar en el servidor con `openssl verify -CAfile ca.crt server.crt`.
+3. **Cadena de firma del cliente**: comprobar que `CLIENT_CERT` en `secrets.h` corresponde de verdad al certificado firmado por la CA para este `DEVICE_ID` (`openssl verify -CAfile ca.crt macetero01.crt`), y que `CLIENT_KEY` es su clave privada correspondiente, no la de otro dispositivo.
+4. **Coincidencia de nombre del servidor**: la dirección usada en `mqtt_server` debe figurar en el SAN del certificado del broker, y como entrada de tipo DNS — mbedTLS no evalúa las entradas de tipo `iPAddress`. Ver [`../docs/troubleshooting.md`](../docs/troubleshooting.md).
 
 ## Consumo de recursos
 

@@ -120,15 +120,15 @@ void connectWiFi() {
 
 void reconnectMQTT() {
   while (!client.connected()) {
-    Serial.print("Conectando MQTT (TLS)...");
+    Serial.print("Conectando MQTT (mTLS)...");
 
-    // El payload del LWT lo publica el broker automáticamente si este
-    // cliente se desconecta sin avisar. Retained para que un suscriptor
-    // que llegue después conozca el estado actual del dispositivo.
+    // La identidad ya no viaja como usuario/contraseña: el broker la
+    // deriva del CN del certificado de cliente (ver setup()). El payload
+    // del LWT lo publica el broker automáticamente si este cliente se
+    // desconecta sin avisar. Retained para que un suscriptor que llegue
+    // después conozca el estado actual del dispositivo.
     bool conectado = client.connect(
       mqtt_client_id,
-      MQTT_USER,
-      MQTT_PASS,
       mqtt_topic_estado,   // will topic
       1,                   // will QoS
       true,                // will retained
@@ -143,8 +143,8 @@ void reconnectMQTT() {
       int rc = client.state();
       Serial.print(" fallo rc=");
       Serial.print(rc);
-      if (rc == 4 || rc == 5) {
-        Serial.println(" (credenciales rechazadas)");
+      if (rc == 5) {
+        Serial.println(" (certificado de cliente no autorizado: revisar CN y ACL)");
       } else if (rc == -2) {
         Serial.println(" (fallo de red o handshake TLS: revisar IP, certificado y hora)");
       } else {
@@ -327,8 +327,11 @@ void setup() {
   // 3) Hora antes que TLS: el handshake valida la vigencia del certificado.
   sincronizarHora();
 
-  // 4) TLS y MQTT
+  // 4) TLS mutuo y MQTT: CA_CERT valida al broker, CLIENT_CERT/CLIENT_KEY
+  //    es como este dispositivo se identifica ante él (ver secrets.h).
   espClient.setCACert(CA_CERT);
+  espClient.setCertificate(CLIENT_CERT);
+  espClient.setPrivateKey(CLIENT_KEY);
   client.setServer(mqtt_server, mqtt_port);
   client.setCallback(mqttCallback);
   reconnectMQTT();

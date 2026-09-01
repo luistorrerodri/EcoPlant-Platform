@@ -65,7 +65,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Detección de dispositivos desconectados (MQTT Last Will and Testament)
 - [x] Firmware no bloqueante: el dispositivo sigue operativo durante el riego
 - [x] Seguridad: autenticación por dispositivo, ACLs por topic y MQTT sobre TLS
-- [ ] Autenticación mutua (mTLS) con certificado por dispositivo
+- [x] Autenticación mutua (mTLS) con certificado por dispositivo
 - [ ] Acceso remoto seguro (reverse proxy con HTTPS)
 - [ ] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
 - [ ] App móvil

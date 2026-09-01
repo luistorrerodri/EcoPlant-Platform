@@ -217,3 +217,19 @@ Las entradas se acumulan, de modo que ambos clientes encuentran una coincidencia
 **Solución**: eliminar por completo el bloque de decisión del firmware, dejando únicamente la ejecución del comando recibido por MQTT. El ESP32 pasó a ser exclusivamente sensor y actuador.
 
 **Aprendizaje**: durante una migración de responsabilidad de un componente a otro, el estado intermedio en el que ambos hacen lo mismo es especialmente traicionero: funciona, y por eso es fácil olvidarse de completar la migración. Conviene tratar la eliminación de la lógica antigua como parte de la misma tarea, no como una limpieza posterior opcional.
+
+---
+
+## 13. `-9984 X509 verify failed` en el ESP32 al añadir mTLS, causado por un `CA_CERT` desactualizado
+
+**Síntoma**: al implementar autenticación mutua (certificado de cliente por dispositivo), el ESP32 dejó de conectar al broker con `(-9984) X509 - Certificate verification failed`, el mismo código genérico que agrupa varias causas (ver entrada 11). El log de Mosquitto mostraba, casi en el instante de aceptar la conexión: `OpenSSL Error[0]: error:0A000418:SSL routines::tlsv1 alert unknown ca`.
+
+**Diagnóstico**: la sospecha inicial fue el certificado de cliente recién creado — el cambio más reciente. Se descartó en dos pasos: primero, probando el par `macetero01.crt`/`macetero01.key` directamente desde la propia Pi con `mosquitto_sub --cert ... --key ...`, que conectó sin problema, confirmando que el certificado de cliente era válido. Segundo, desactivando temporalmente `require_certificate` en el broker (de modo que el certificado de cliente dejaba de intervenir) y comprobando que el ESP32 **seguía fallando exactamente igual** — lo que descartó por completo la vía del certificado de cliente y apuntó a la verificación del certificado del *servidor*, sin relación con el trabajo de mTLS.
+
+Con eso, el patrón del log (fallo casi inmediato, alerta `unknown ca` recibida por el broker) encajaba con que fuera el propio ESP32 quien rechazaba el certificado del broker y abortaba el handshake enviando esa alerta — es decir, el `CA_CERT` embebido en el firmware no correspondía ya al `ca.crt` real de la Pi, probablemente por haber quedado una copia de una generación de CA anterior.
+
+**Solución**: volver a copiar el `ca.crt` actual de la Pi al `secrets.h` del firmware (archivo a archivo, sin retipear el contenido — ver la nota siguiente) y reflashear.
+
+**Aprendizaje**: cuando un fallo de TLS aparece justo después de tocar *otra* pieza relacionada (aquí, añadir el certificado de cliente), es tentador asumir que la pieza recién tocada es la culpable. Aislar la variable — probar el certificado nuevo por separado, y luego desactivar temporalmente la función nueva para ver si el fallo persiste sin ella — evita perder tiempo depurando la parte equivocada. El código `-9984` seguía sin distinguir la causa exacta; hizo falta cruzar el log del ESP32 con el del broker (no solo mirar un lado) para saber qué certificado era el que realmente estaba fallando.
+
+**Nota sobre copiar/pegar certificados**: retranscribir manualmente un bloque PEM (por terminal o a mano) es una fuente de errores fácil de introducir y difícil de detectar a simple vista. La forma fiable es traer el archivo real al equipo (`scp`) y copiar su contenido directamente en un editor de texto, sin que el contenido pase por una reescritura intermedia.

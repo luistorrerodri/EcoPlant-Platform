@@ -12,17 +12,6 @@ Componentes: **Mosquitto** (broker MQTT) · **Node-RED** (lógica y dashboard) �
 sudo apt install -y mosquitto mosquitto-clients
 ```
 
-### Credenciales
-
-Un usuario para la plataforma y uno por dispositivo:
-
-```bash
-sudo mosquitto_passwd -c /etc/mosquitto/passwd nodered     # -c crea el archivo
-sudo mosquitto_passwd /etc/mosquitto/passwd macetero01     # sin -c: añade
-```
-
-> El flag `-c` **sobrescribe** el archivo. Solo se usa la primera vez.
-
 ### ACLs
 
 En `/etc/mosquitto/acl`:
@@ -39,7 +28,7 @@ topic write maceteros/macetero01/estado
 topic read  maceteros/macetero01/comando
 ```
 
-Cada dispositivo nuevo requiere su usuario y su bloque de ACL correspondiente.
+Cada dispositivo nuevo requiere su bloque de ACL correspondiente. El `user` de cada bloque ya no es una cuenta con contraseña propia (ver "Certificados de cliente (mTLS)" más abajo): con `use_identity_as_username` activado, Mosquitto toma este nombre directamente del **CN del certificado de cliente** presentado en el handshake TLS. Por eso el CN de cada certificado debe coincidir exactamente con el `user` de su bloque de ACL.
 
 ### Certificados TLS
 
@@ -89,6 +78,36 @@ sudo cp ca.crt /etc/mosquitto/ca_certificates/
 sudo chmod 644 /etc/mosquitto/ca_certificates/ca.crt
 ```
 
+### Certificados de cliente (mTLS)
+
+Hasta aquí el broker demuestra su identidad al cliente (TLS del lado servidor). Falta el sentido contrario: que cada cliente demuestre la suya al broker, con un certificado propio firmado por la misma CA. Esto sustituye por completo al usuario/contraseña como mecanismo de autenticación — la identidad pasa a ser el **CN del certificado**, no una contraseña que se pueda filtrar.
+
+**Genera estos certificados donde tengas `ca.key`, no en la Raspberry Pi** — la clave privada de la CA no reside en el servidor (ver más abajo), así que este paso no puede hacerse ahí.
+
+```bash
+mkdir -p ~/certs/clients && cd ~/certs/clients
+
+# Un certificado de cliente por identidad: uno por cada dispositivo
+# (CN = su DEVICE_ID) y uno para la propia plataforma (CN = nodered).
+for cn in macetero01 nodered; do
+  openssl genrsa -out "$cn.key" 2048
+  openssl req -new -key "$cn.key" -out "$cn.csr" \
+    -subj "/C=ES/ST=Alicante/L=Aspe/O=EcoPlant/CN=$cn"
+  openssl x509 -req -in "$cn.csr" -CA ../ca.crt -CAkey ../ca.key -CAcreateserial \
+    -out "$cn.crt" -days 730
+  openssl verify -CAfile ../ca.crt "$cn.crt"
+done
+```
+
+El CN debe coincidir exactamente con el `user` del bloque de ACL correspondiente (ver arriba). `macetero01.crt`/`macetero01.key` se embeben en el firmware de ese dispositivo como `CLIENT_CERT`/`CLIENT_KEY` (ver [`../firmware/README.md`](../firmware/README.md)) — no se copian a la Raspberry Pi, viajan directamente al ESP32. `nodered.crt`/`nodered.key` sí van al servidor, para que el propio Node-RED se autentique como cliente:
+
+```bash
+scp nodered.crt nodered.key piluis@192.168.1.140:~/certs/
+ssh piluis@192.168.1.140 'chmod 600 ~/certs/nodered.key'
+```
+
+**Revocación**: sin una CRL (lista de revocación), "revocar" un dispositivo hoy significa quitar su bloque de `/etc/mosquitto/acl` — el certificado seguiría siendo válido para el TLS, pero sin ACL no podría publicar ni leer nada. Si la clave privada de un dispositivo se viera comprometida de verdad, la única garantía real es regenerar la CA. Añadir una CRL queda como mejora futura.
+
 ### Configuración final
 
 En `/etc/mosquitto/conf.d/iot.conf`:
@@ -100,31 +119,41 @@ certfile /etc/mosquitto/certs/server.crt
 keyfile /etc/mosquitto/certs/server.key
 tls_version tlsv1.2
 
+require_certificate true
+use_identity_as_username true
+
 allow_anonymous false
-password_file /etc/mosquitto/passwd
 acl_file /etc/mosquitto/acl
 ```
 
+`require_certificate true` obliga a todo cliente a presentar un certificado firmado por la CA configurada en `cafile` — sin él, el handshake TLS ni siquiera se completa. `use_identity_as_username true` hace que Mosquitto ignore cualquier usuario/contraseña que el cliente envíe y use en su lugar el CN del certificado como identidad para las ACLs. `password_file` ya no hace falta: la identidad la garantiza el certificado, no una contraseña.
+
 ```bash
-sudo systemctl enable --now mosquitto
+sudo systemctl restart mosquitto
 ```
 
 ### Verificación
 
 ```bash
-# Con TLS y credenciales: debe funcionar
+# Con certificado de cliente válido: debe funcionar (sin -u/-P, ya no se usan)
 mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
-  -u nodered -P '<password>' -t "maceteros/#" -v
+  --cert ~/certs/clients/nodered.crt --key ~/certs/clients/nodered.key \
+  -t "maceteros/#" -v
+
+# Sin certificado de cliente: debe fallar, el handshake TLS ni se completa
+mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt -t "maceteros/#" -v
 
 # Sin cifrar: debe fallar (no hay listener en 1883)
-mosquitto_sub -h 192.168.1.140 -p 1883 -u nodered -P '<password>' -t "maceteros/#" -v
+mosquitto_sub -h 192.168.1.140 -p 1883 -t "maceteros/#" -v
 
-# Un dispositivo leyendo topics ajenos: conecta, pero la ACL no entrega nada
+# Certificado de un dispositivo leyendo topics ajenos: conecta (CN válido),
+# pero la ACL no entrega nada fuera de maceteros/macetero01/*
 mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
-  -u macetero01 -P '<password>' -t "maceteros/#" -v
+  --cert ~/certs/clients/macetero01.crt --key ~/certs/clients/macetero01.key \
+  -t "maceteros/#" -v
 ```
 
-> Al conectar hay que usar la **misma dirección** que figura en el certificado. Con `localhost` la validación del nombre falla aunque el broker responda.
+> Al conectar hay que usar la **misma dirección** que figura en el certificado del servidor. Con `localhost` la validación del nombre falla aunque el broker responda.
 
 ---
 
@@ -199,11 +228,17 @@ En el nodo de configuración del broker MQTT:
 | Servidor | `192.168.1.140` (no `localhost`: debe coincidir con el certificado) |
 | Puerto | `8883` |
 | Utilizar TLS | activado |
-| Certificado CA | `/etc/mosquitto/ca_certificates/ca.crt` |
-| Verificar certificado del servidor | activado |
-| Usuario / Contraseña | pestaña *Seguridad*, credenciales del usuario `nodered` |
 
-En la configuración TLS hay que marcar **"Utilizar claves y certificados de archivos locales"** para poder indicar la ruta en lugar de subir el archivo. Los campos de certificado y clave de cliente quedan vacíos mientras no se implemente mTLS.
+En la configuración TLS, con **"Utilizar claves y certificados de archivos locales"** marcado:
+
+| Campo | Valor |
+|---|---|
+| Certificado CA | `/etc/mosquitto/ca_certificates/ca.crt` |
+| Certificado | `/home/piluis/certs/nodered.crt` |
+| Clave privada | `/home/piluis/certs/nodered.key` |
+| Verificar certificado del servidor | activado |
+
+Con mTLS, la pestaña *Seguridad* del broker (usuario/contraseña) queda vacía: la identidad de Node-RED ante el broker la demuestra el certificado de cliente, no una credencial. Rutas locales — nada de esto se sube al repositorio; `flows.json` solo guarda las rutas de archivo, no el contenido de la clave.
 
 ### Importar los flujos
 
@@ -343,7 +378,7 @@ Prueba de extremo a extremo sin necesidad de hardware, publicando una lectura si
 
 ```bash
 mosquitto_pub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
-  -u nodered -P '<password>' \
+  --cert ~/certs/clients/nodered.crt --key ~/certs/clients/nodered.key \
   -t "maceteros/test01/sensores" \
   -m '{"device_id":"test01","humedad_suelo":42,"temp_aire":22.5,"presion":1013.2,"estado":"OK"}'
 ```
@@ -356,7 +391,7 @@ El dato debe aparecer en el bucket `macetero_iot` de InfluxDB y, por tanto, en G
 
 | Servicio | Puerto | Autenticación | Cifrado |
 |---|---|---|---|
-| Mosquitto | 8883 | usuario/contraseña + ACL | TLS 1.2 |
+| Mosquitto | 8883 | certificado de cliente (mTLS) + ACL | TLS 1.2 |
 | Node-RED | 1880 | editor y dashboard separados | — |
 | InfluxDB | 8086 | usuario/contraseña + token API | — |
 | Grafana | 3000 | usuario/contraseña | — |
@@ -374,8 +409,9 @@ Los siguientes elementos no se regeneran solos y conviene respaldarlos:
 | Flujos y credenciales de Node-RED | `~/.node-red/flows.json`, `~/.node-red/flows_cred.json` |
 | Clave de cifrado de credenciales | `credentialSecret` en `settings.js` |
 | Contexto persistente (parámetros de riego) | `~/.node-red/context/` |
-| CA y certificados | `~/certs/` |
-| Contraseñas y ACLs del broker | `/etc/mosquitto/passwd`, `/etc/mosquitto/acl` |
+| CA y certificado del servidor | `~/certs/` (en la máquina donde vive la CA, no necesariamente la Pi) |
+| Certificados de cliente (Node-RED, por dispositivo) | `~/certs/clients/` y `~/certs/nodered.{crt,key}` en la Pi |
+| ACLs del broker | `/etc/mosquitto/acl` |
 | Datos históricos | `/var/lib/influxdb/` |
 
 La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos.

@@ -79,7 +79,7 @@ La plataforma aplica tres capas independientes sobre la comunicación con los di
 
 ### Autenticación
 
-El broker no admite conexiones anónimas. Cada cliente dispone de credenciales propias: un usuario para la plataforma y **un usuario por dispositivo**. Esta separación permite revocar el acceso de un macetero concreto —por ejemplo, si se pierde o se ve comprometido— sin afectar al resto del sistema.
+El broker no admite conexiones anónimas, y cada cliente demuestra su identidad con un **certificado propio** (autenticación mutua, mTLS) en lugar de usuario y contraseña: la plataforma tiene el suyo y **cada dispositivo el suyo**, todos firmados por la misma CA. El CN del certificado (`nodered`, `macetero01`...) es lo que el broker usa como identidad para las ACLs. Esta separación permite revocar el acceso de un macetero concreto —por ejemplo, si se pierde o se ve comprometido— sin afectar al resto del sistema, y elimina de paso el riesgo de una contraseña filtrada: no hay contraseña que filtrar.
 
 ### Autorización
 
@@ -105,7 +105,9 @@ Se emplea una **autoridad certificadora propia**: la CA firma el certificado del
 
 La clave privada de la CA no reside en el servidor: se mantiene fuera del alcance de los servicios, ya que solo se necesita para firmar certificados nuevos.
 
-**Trabajo pendiente**: actualmente solo se verifica la identidad del servidor. El siguiente paso es la autenticación mutua (mTLS), en la que cada dispositivo presenta su propio certificado de cliente y el broker lo valida. Es el estándar en despliegues IoT de producción y sustituye a las credenciales de usuario y contraseña.
+La verificación es **mutua**: el dispositivo comprueba la identidad del broker (con `CA_CERT`) y el broker comprueba la identidad del dispositivo (con su certificado de cliente, `CLIENT_CERT`/`CLIENT_KEY`, firmado por la misma CA). El broker exige ese certificado antes de completar el handshake (`require_certificate`) y deriva la identidad de su CN en lugar de un usuario/contraseña (`use_identity_as_username`) — es el estándar en despliegues IoT de producción. Detalle de la generación de certificados de cliente en [`../platform/README.md`](../platform/README.md#certificados-de-cliente-mtls).
+
+**Limitación conocida**: no hay lista de revocación (CRL). Revocar un dispositivo hoy es quitar su bloque de la ACL — el certificado seguiría siendo válido para TLS, pero sin ACL no podría hacer nada. Si una clave privada se comprometiera de verdad, la única garantía completa es regenerar la CA.
 
 ### Validez temporal
 
@@ -151,7 +153,7 @@ Esta estructura, indexada por dispositivo desde el primer momento aunque hoy sol
 ## Limitaciones conocidas y trabajo pendiente
 
 - La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
-- La autenticación de dispositivos es por usuario y contraseña sobre TLS. La evolución natural es **mTLS** con certificado por dispositivo, que además habilita el aprovisionamiento automático y la revocación individual sin gestionar contraseñas.
+- No hay lista de revocación (CRL): revocar un dispositivo comprometido de forma robusta exige hoy regenerar la CA, no solo quitarlo de la ACL.
 - El acceso a Node-RED, Grafana e InfluxDB es por HTTP sin cifrar. En red local aislada es asumible, pero exponerlos requiere un reverse proxy con HTTPS.
 - Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy, pero convendría diferenciarlo si se quieren políticas distintas.
 - No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego. Es la principal carencia funcional: la bomba puede llegar a trabajar en seco.
