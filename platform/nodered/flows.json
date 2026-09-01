@@ -142,10 +142,11 @@
         "type": "mqtt-broker",
         "name": "planta_datos",
         "broker": "192.168.1.140",
-        "port": 1883,
+        "port": "8883",
+        "tls": "0150765acf2ec8a7",
         "clientid": "",
         "autoConnect": true,
-        "usetls": false,
+        "usetls": true,
         "protocolVersion": 4,
         "keepalive": 60,
         "cleansession": true,
@@ -297,6 +298,20 @@
         "url": "http://localhost:8086",
         "timeout": 10,
         "rejectUnauthorized": true
+    },
+    {
+        "id": "0150765acf2ec8a7",
+        "type": "tls-config",
+        "name": "EcoPlant CA",
+        "cert": "",
+        "key": "",
+        "ca": "/etc/mosquitto/ca_certificates/ca.crt",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true,
+        "alpnprotocol": ""
     },
     {
         "id": "548e24a4d662b7d7",
@@ -1272,7 +1287,7 @@
         ]
     },
     {
-        "id": "924c89b007ebf061",
+        "id": "a2e6a92e134bb05a",
         "type": "global-config",
         "env": [],
         "modules": {

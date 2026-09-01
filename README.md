@@ -10,6 +10,7 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Decide automáticamente cuándo regar según un umbral y una franja horaria configurables, **sin que la lógica viva en el microcontrolador**
 - Verifica que cada orden de riego se ha ejecutado realmente, en lugar de asumirlo
 - Detecta cuándo un dispositivo se desconecta de forma inesperada
+- Comunicación cifrada con autenticación y autorización por dispositivo
 - Permite riego manual bajo demanda desde un dashboard web
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
@@ -63,9 +64,12 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Ciclo cerrado: el dispositivo confirma cada riego ejecutado
 - [x] Detección de dispositivos desconectados (MQTT Last Will and Testament)
 - [x] Firmware no bloqueante: el dispositivo sigue operativo durante el riego
-- [ ] Autenticación multi-usuario y acceso remoto seguro
+- [x] Seguridad: autenticación por dispositivo, ACLs por topic y MQTT sobre TLS
+- [ ] Autenticación mutua (mTLS) con certificado por dispositivo
+- [ ] Acceso remoto seguro (reverse proxy con HTTPS)
+- [ ] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
 - [ ] App móvil
-- [ ] Integración meteorológica y modelo de aprendizaje sobre el histórico
+- [ ] Integración meteorológica y analítica sobre el histórico
 
 ## Problemas reales resueltos
 
@@ -73,6 +77,8 @@ Una parte del valor de este proyecto está en los problemas de integración real
 
 - **Sensor mal etiquetado**: un módulo vendido como BME280 resultó ser un BMP280 (sin sensor de humedad) tras leer su chip ID por I2C directamente — el fabricante había reutilizado la serigrafía.
 - **Repositorio APT roto en Bookworm/ARM64**: fallo de verificación GPG persistente en el repositorio oficial de InfluxData para esa combinación de sistema, resuelto instalando desde el binario oficial con un servicio systemd propio en lugar de depender de `apt`.
+- **Riegos en ráfaga**: al condicionar el riego a la confirmación del dispositivo, las órdenes se encolaron en el broker mientras el firmware bloqueaba. Resuelto con una ventana de guarda en la plataforma y, de raíz, con un firmware no bloqueante.
+- **Dos implementaciones de TLS, dos criterios**: el mismo certificado era aceptado por un cliente y rechazado por el otro, primero por falta de SAN (Node.js ignora el Common Name) y después por el tipo de entrada del SAN (mbedTLS no evalúa las de tipo `iPAddress`). Resuelto con un certificado que satisface a ambas implementaciones.
 
 ## Estructura del repositorio
 

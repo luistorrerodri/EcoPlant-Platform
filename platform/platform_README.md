@@ -12,24 +12,119 @@ Componentes: **Mosquitto** (broker MQTT) · **Node-RED** (lógica y dashboard) �
 sudo apt install -y mosquitto mosquitto-clients
 ```
 
-Configuración en `/etc/mosquitto/conf.d/iot.conf`:
+### Credenciales
+
+Un usuario para la plataforma y uno por dispositivo:
+
+```bash
+sudo mosquitto_passwd -c /etc/mosquitto/passwd nodered     # -c crea el archivo
+sudo mosquitto_passwd /etc/mosquitto/passwd macetero01     # sin -c: añade
+```
+
+> El flag `-c` **sobrescribe** el archivo. Solo se usa la primera vez.
+
+### ACLs
+
+En `/etc/mosquitto/acl`:
 
 ```
-listener 1883
-allow_anonymous true
+# Plataforma: acceso completo al árbol de maceteros
+user nodered
+topic readwrite maceteros/#
+
+# Dispositivo: solo sus propios topics
+user macetero01
+topic write maceteros/macetero01/sensores
+topic write maceteros/macetero01/estado
+topic read  maceteros/macetero01/comando
+```
+
+Cada dispositivo nuevo requiere su usuario y su bloque de ACL correspondiente.
+
+### Certificados TLS
+
+Se crea una CA propia que firma el certificado del broker:
+
+```bash
+mkdir -p ~/certs && cd ~/certs
+
+# CA (la clave se protege con contraseña y NO se copia al servidor)
+openssl genrsa -des3 -out ca.key 2048
+openssl req -new -x509 -days 3650 -key ca.key -out ca.crt
+
+# Clave y petición de firma del servidor
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -out server.csr \
+  -subj "/C=ES/ST=Alicante/L=Aspe/O=EcoPlant/CN=192.168.1.140"
+```
+
+**El archivo de extensiones es imprescindible.** Sin SAN, Node.js rechaza el certificado; con SAN únicamente de tipo `IP`, lo rechaza mbedTLS en el ESP32. La dirección debe figurar en ambas formas:
+
+```bash
+cat > server.ext << 'EOF'
+subjectAltName = IP:192.168.1.140, DNS:192.168.1.140, DNS:raspberrypi, DNS:localhost
+EOF
+
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out server.crt -days 730 -extfile server.ext
+```
+
+Verificación antes de instalar:
+
+```bash
+openssl verify -CAfile ca.crt server.crt
+openssl x509 -in server.crt -noout -text | grep -A1 "Subject Alternative Name"
+```
+
+Instalación:
+
+```bash
+sudo cp ca.crt server.crt server.key /etc/mosquitto/certs/
+sudo chown root:mosquitto /etc/mosquitto/certs/*
+sudo chmod 640 /etc/mosquitto/certs/*
+
+# Copia legible por Node-RED (es un certificado público, no una clave)
+sudo mkdir -p /etc/mosquitto/ca_certificates
+sudo cp ca.crt /etc/mosquitto/ca_certificates/
+sudo chmod 644 /etc/mosquitto/ca_certificates/ca.crt
+```
+
+### Configuración final
+
+En `/etc/mosquitto/conf.d/iot.conf`:
+
+```
+listener 8883
+cafile /etc/mosquitto/certs/ca.crt
+certfile /etc/mosquitto/certs/server.crt
+keyfile /etc/mosquitto/certs/server.key
+tls_version tlsv1.2
+
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+acl_file /etc/mosquitto/acl
 ```
 
 ```bash
 sudo systemctl enable --now mosquitto
 ```
 
-> **Advertencia**: `allow_anonymous true` no requiere credenciales. Es aceptable únicamente en una red local aislada. Antes de exponer el broker a internet hay que configurar autenticación con `password_file` y ACLs por dispositivo.
-
-Comprobación:
+### Verificación
 
 ```bash
-mosquitto_sub -h localhost -t "maceteros/#" -v
+# Con TLS y credenciales: debe funcionar
+mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
+  -u nodered -P '<password>' -t "maceteros/#" -v
+
+# Sin cifrar: debe fallar (no hay listener en 1883)
+mosquitto_sub -h 192.168.1.140 -p 1883 -u nodered -P '<password>' -t "maceteros/#" -v
+
+# Un dispositivo leyendo topics ajenos: conecta, pero la ACL no entrega nada
+mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
+  -u macetero01 -P '<password>' -t "maceteros/#" -v
 ```
+
+> Al conectar hay que usar la **misma dirección** que figura en el certificado. Con `localhost` la validación del nombre falla aunque el broker responda.
 
 ---
 
@@ -49,9 +144,39 @@ Menú → *Manage palette* → *Install*:
 - `node-red-dashboard`
 - `node-red-contrib-influxdb`
 
+### Autenticación
+
+Node-RED distingue el acceso al editor del acceso al dashboard. Genera un hash por usuario:
+
+```bash
+node -e "console.log(require('/usr/lib/node_modules/node-red/node_modules/bcryptjs').hashSync(process.argv[1], 8));" '<password>'
+```
+
+En `~/.node-red/settings.js`:
+
+```javascript
+adminAuth: {
+    type: "credentials",
+    users: [{
+        username: "admin",
+        password: "<hash del admin>",
+        permissions: "*"
+    }]
+},
+
+httpNodeAuth: {
+    user: "usuario",
+    pass: "<hash del usuario de dashboard>"
+},
+
+credentialSecret: "<cadena larga y aleatoria>",
+```
+
+`credentialSecret` cifra las credenciales de los nodos (tokens, contraseñas) con una clave propia en lugar de una autogenerada por la instalación. Sin ella, un backup de los flujos no es restaurable en otra máquina. **Si se pierde, las credenciales guardadas hay que reintroducirlas a mano.** Se aplica en el siguiente Deploy.
+
 ### Persistencia del contexto
 
-Los parámetros de riego se guardan en el *global context*. Sin esta configuración se pierden en cada reinicio. En `~/.node-red/settings.js`:
+Los parámetros de riego se guardan en el *global context*. Sin esta configuración se pierden en cada reinicio:
 
 ```javascript
 contextStorage: {
@@ -65,11 +190,26 @@ contextStorage: {
 sudo systemctl restart nodered
 ```
 
+### Conexión TLS al broker
+
+En el nodo de configuración del broker MQTT:
+
+| Campo | Valor |
+|---|---|
+| Servidor | `192.168.1.140` (no `localhost`: debe coincidir con el certificado) |
+| Puerto | `8883` |
+| Utilizar TLS | activado |
+| Certificado CA | `/etc/mosquitto/ca_certificates/ca.crt` |
+| Verificar certificado del servidor | activado |
+| Usuario / Contraseña | pestaña *Seguridad*, credenciales del usuario `nodered` |
+
+En la configuración TLS hay que marcar **"Utilizar claves y certificados de archivos locales"** para poder indicar la ruta en lugar de subir el archivo. Los campos de certificado y clave de cliente quedan vacíos mientras no se implemente mTLS.
+
 ### Importar los flujos
 
 Menú → *Import* → pegar el contenido de [`nodered/flows.json`](nodered/flows.json).
 
-Tras importar hay que revisar: la dirección del broker MQTT (debe ser `localhost`), y el token, organización y bucket del nodo de InfluxDB.
+Tras importar hay que revisar: la configuración del broker MQTT (dirección, puerto TLS, ruta del certificado y credenciales), y el token, organización y bucket del nodo de InfluxDB.
 
 ---
 
@@ -143,7 +283,23 @@ sudo apt install -y grafana
 sudo systemctl enable --now grafana-server
 ```
 
-Accesible en `http://<ip-raspberry>:3000` (credenciales iniciales `admin` / `admin`).
+Accesible en `http://<ip-raspberry>:3000` (credenciales iniciales `admin` / `admin`, que Grafana obliga a cambiar en el primer acceso).
+
+### Endurecimiento
+
+En `/etc/grafana/grafana.ini`:
+
+```ini
+[users]
+allow_sign_up = false
+
+[auth.anonymous]
+enabled = false
+```
+
+```bash
+sudo systemctl restart grafana-server
+```
 
 ### Fuente de datos
 
@@ -186,7 +342,9 @@ systemctl status mosquitto nodered influxdb grafana-server --no-pager
 Prueba de extremo a extremo sin necesidad de hardware, publicando una lectura simulada:
 
 ```bash
-mosquitto_pub -h localhost -t "maceteros/test01/sensores" \
+mosquitto_pub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
+  -u nodered -P '<password>' \
+  -t "maceteros/test01/sensores" \
   -m '{"device_id":"test01","humedad_suelo":42,"temp_aire":22.5,"presion":1013.2,"estado":"OK"}'
 ```
 
@@ -196,11 +354,28 @@ El dato debe aparecer en el bucket `macetero_iot` de InfluxDB y, por tanto, en G
 
 ## Puertos
 
-| Servicio | Puerto |
-|---|---|
-| Mosquitto | 1883 |
-| Node-RED | 1880 |
-| InfluxDB | 8086 |
-| Grafana | 3000 |
+| Servicio | Puerto | Autenticación | Cifrado |
+|---|---|---|---|
+| Mosquitto | 8883 | usuario/contraseña + ACL | TLS 1.2 |
+| Node-RED | 1880 | editor y dashboard separados | — |
+| InfluxDB | 8086 | usuario/contraseña + token API | — |
+| Grafana | 3000 | usuario/contraseña | — |
 
-Ninguno de estos servicios tiene autenticación configurada actualmente. No deben exponerse fuera de la red local sin resolver antes ese punto.
+El puerto MQTT sin cifrar (1883) está cerrado. Los tres servicios web sirven por HTTP sin cifrar: es asumible en una red local aislada, pero exponerlos a internet requiere un reverse proxy con HTTPS delante.
+
+---
+
+## Copia de seguridad
+
+Los siguientes elementos no se regeneran solos y conviene respaldarlos:
+
+| Qué | Dónde |
+|---|---|
+| Flujos y credenciales de Node-RED | `~/.node-red/flows.json`, `~/.node-red/flows_cred.json` |
+| Clave de cifrado de credenciales | `credentialSecret` en `settings.js` |
+| Contexto persistente (parámetros de riego) | `~/.node-red/context/` |
+| CA y certificados | `~/certs/` |
+| Contraseñas y ACLs del broker | `/etc/mosquitto/passwd`, `/etc/mosquitto/acl` |
+| Datos históricos | `/var/lib/influxdb/` |
+
+La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos.

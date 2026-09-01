@@ -164,7 +164,51 @@ La segunda persistió incluso con el firmware correcto: como el riego en el ESP3
 
 ---
 
-## 10. Riego automático duplicado entre firmware y plataforma
+## 10. Node.js rechaza un certificado que OpenSSL acepta (SAN ausente)
+
+**Síntoma**: tras habilitar TLS en el broker, `mosquitto_sub` conectaba correctamente por el puerto 8883, pero el nodo MQTT de Node-RED se quedaba indefinidamente en estado "conectando", con el log repitiendo `Connection failed to broker: mqtts://...` sin más detalle.
+
+**Diagnóstico**: el certificado del servidor se había generado indicando la dirección del broker únicamente en el campo **Common Name (CN)**. OpenSSL, y por tanto las herramientas de línea de comandos de Mosquitto, aceptan el CN como identificador del servidor. Node.js, en cambio, sigue la recomendación de RFC 6125 e **ignora el CN por completo**, exigiendo que la dirección figure en la extensión **Subject Alternative Name (SAN)**.
+
+Se confirmó con:
+
+```bash
+openssl x509 -in server.crt -noout -text | grep -A1 "Subject Alternative Name"
+```
+
+que no devolvía nada: el certificado carecía de SAN.
+
+**Solución**: regenerar el certificado del servidor incluyendo la extensión, mediante un archivo de extensiones pasado con `-extfile`. La CA no se toca, de modo que los dispositivos que ya llevan el `ca.crt` embebido no requieren reflasheo.
+
+**Aprendizaje**: el CN como identificador de servidor está obsoleto desde hace años. Cualquier certificado nuevo debe llevar SAN, incluso en entornos internos con CA propia.
+
+---
+
+## 11. mbedTLS (ESP32) rechaza un certificado que Node.js acepta (SAN por IP)
+
+**Síntoma**: tras corregir el problema anterior, Node-RED conectaba correctamente pero el ESP32 pasó a fallar de forma sistemática con:
+
+```
+(-9984) X509 - Certificate verification failed, e.g. CRL, CA or signature check failed
+```
+
+**Diagnóstico**: el caso simétrico al anterior. El SAN se había generado con la entrada `IP Address:192.168.1.140`, que es lo formalmente correcto para una dirección IP. Node.js interpreta correctamente las entradas de tipo `iPAddress`. La implementación de mbedTLS que utiliza el ESP32, en cambio, compara el nombre solicitado contra las entradas de tipo **dNSName**, sin evaluar las de tipo `iPAddress`, por lo que ninguna coincidía y la verificación fallaba.
+
+**Solución**: incluir la dirección **también** como entrada DNS, aunque sea una IP:
+
+```
+subjectAltName = IP:192.168.1.140, DNS:192.168.1.140, DNS:raspberrypi, DNS:localhost
+```
+
+Las entradas se acumulan, de modo que ambos clientes encuentran una coincidencia válida con el mismo certificado.
+
+**Aprendizaje**: dos implementaciones de TLS que cumplen el estándar pueden diferir en qué partes del certificado evalúan. En un sistema con clientes heterogéneos (un runtime de servidor y un microcontrolador), el certificado debe satisfacer a la implementación más restrictiva de todas, no a la más permisiva. Conviene verificar la conexión desde **cada** tipo de cliente antes de dar por buena una configuración TLS.
+
+**Nota de diagnóstico**: el código `-9984` de mbedTLS agrupa varias causas distintas (firma inválida, CA desconocida, nombre no coincidente, certificado caducado). Cuando aparece, merece la pena descartar por orden: fecha del dispositivo, cadena de firma (`openssl verify -CAfile ca.crt server.crt`) y, por último, coincidencia de nombre en el SAN.
+
+---
+
+## 12. Riego automático duplicado entre firmware y plataforma
 
 **Síntoma**: no llegó a manifestarse como fallo en producción, pero se detectó durante la migración de la lógica al servidor.
 

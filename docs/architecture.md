@@ -73,6 +73,54 @@ La consecuencia es que durante el riego el dispositivo sigue publicando lecturas
 
 Adicionalmente existe un tope de seguridad por hardware lógico: la duración efectiva del riego se acota a un máximo absoluto, de modo que un valor de configuración erróneo no puede dejar la bomba encendida indefinidamente.
 
+## Seguridad
+
+La plataforma aplica tres capas independientes sobre la comunicación con los dispositivos.
+
+### Autenticación
+
+El broker no admite conexiones anónimas. Cada cliente dispone de credenciales propias: un usuario para la plataforma y **un usuario por dispositivo**. Esta separación permite revocar el acceso de un macetero concreto —por ejemplo, si se pierde o se ve comprometido— sin afectar al resto del sistema.
+
+### Autorización
+
+La autenticación por sí sola no basta: un dispositivo legítimo no debe poder leer los datos de otros ni emitir órdenes. Las ACLs del broker restringen cada identidad a su ámbito:
+
+```
+user nodered
+topic readwrite maceteros/#
+
+user macetero01
+topic write maceteros/macetero01/sensores
+topic write maceteros/macetero01/estado
+topic read  maceteros/macetero01/comando
+```
+
+La asimetría es deliberada: el dispositivo **publica** sus lecturas y su estado, pero solo **lee** comandos. Emitir órdenes de riego es privilegio exclusivo de la plataforma, incluso sobre el propio dispositivo.
+
+### Cifrado en tránsito
+
+Toda la comunicación MQTT viaja sobre TLS 1.2 en el puerto 8883. El puerto 1883 (sin cifrar) está cerrado.
+
+Se emplea una **autoridad certificadora propia**: la CA firma el certificado del broker, y cada dispositivo lleva embebido el certificado de la CA para verificar que se conecta al broker legítimo y no a un suplantador. Es el mismo modelo de confianza de HTTPS, con la organización actuando como autoridad en lugar de una CA pública.
+
+La clave privada de la CA no reside en el servidor: se mantiene fuera del alcance de los servicios, ya que solo se necesita para firmar certificados nuevos.
+
+**Trabajo pendiente**: actualmente solo se verifica la identidad del servidor. El siguiente paso es la autenticación mutua (mTLS), en la que cada dispositivo presenta su propio certificado de cliente y el broker lo valida. Es el estándar en despliegues IoT de producción y sustituye a las credenciales de usuario y contraseña.
+
+### Validez temporal
+
+TLS valida el periodo de vigencia de los certificados, lo que exige que el dispositivo conozca la fecha real. El ESP32 sincroniza por NTP al arrancar, con la zona horaria peninsular y sus reglas de cambio estacional, y actualiza el RTC con esa referencia. El RTC queda como respaldo para operar sin red.
+
+Esto resolvió además un problema anterior: la franja horaria de riego dependía de la hora del RTC, que podía quedar desajustada tras un reinicio.
+
+### Acceso a los servicios
+
+Node-RED distingue dos niveles de acceso: `adminAuth` protege el editor de flujos, y `httpNodeAuth` protege el dashboard. La separación tiene sentido de producto — el usuario final debe poder consultar su planta y regar, pero no reprogramar la lógica del sistema.
+
+Grafana e InfluxDB emplean su propia autenticación, con el registro de usuarios deshabilitado y sin acceso anónimo.
+
+Las credenciales de los nodos de Node-RED se cifran con una clave propia (`credentialSecret`) en lugar de una autogenerada, de modo que una copia de seguridad de los flujos es restaurable en otra máquina.
+
 ## Modelo de datos en InfluxDB
 
 - **Measurement**: `sensores`
@@ -103,7 +151,10 @@ Esta estructura, indexada por dispositivo desde el primer momento aunque hoy sol
 ## Limitaciones conocidas y trabajo pendiente
 
 - La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
-- No hay autenticación en el broker MQTT (`allow_anonymous true`) ni en el acceso a Node-RED/Grafana — aceptable en red local aislada, pero es el primer bloqueante a resolver antes de exponer la plataforma a internet.
-- Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy (la planta tiene agua, sin importar quién lo ordenara), pero convendría diferenciarlo si en el futuro se quieren políticas distintas.
+- La autenticación de dispositivos es por usuario y contraseña sobre TLS. La evolución natural es **mTLS** con certificado por dispositivo, que además habilita el aprovisionamiento automático y la revocación individual sin gestionar contraseñas.
+- El acceso a Node-RED, Grafana e InfluxDB es por HTTP sin cifrar. En red local aislada es asumible, pero exponerlos requiere un reverse proxy con HTTPS.
+- Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy, pero convendría diferenciarlo si se quieren políticas distintas.
 - No hay sensor de nivel de depósito, por lo que la plataforma no puede saber si hay agua disponible antes de ordenar un riego. Es la principal carencia funcional: la bomba puede llegar a trabajar en seco.
-- La calibración del sensor de humedad está fijada en el firmware. Recalibrar exige recompilar y flashear, cuando conceptualmente es un parámetro de configuración más y debería vivir en la plataforma.
+- El riego se dosifica por **tiempo**, no por volumen. Un caudalímetro permitiría dosificación volumétrica real y detectar la degradación de la bomba (menos caudal para el mismo tiempo de funcionamiento).
+- La calibración del sensor de humedad está fijada en el firmware. Recalibrar exige recompilar y flashear, cuando conceptualmente es un parámetro de configuración más.
+- No hay actualización de firmware por red (OTA). Con el 73 % de la flash ocupada tras incorporar TLS, habilitarla requerirá ajustar el esquema de particiones.
