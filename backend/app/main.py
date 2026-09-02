@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.routers import auth
+from app.routers import auth, locations
 
 app = FastAPI(
     title="EcoPlant Platform API",
@@ -10,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(locations.router)
 
 
 @app.get("/api/health")
