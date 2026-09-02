@@ -1,9 +1,12 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
 from app.routers import admin, auth, devices, locations
 from app.services import mqtt_client
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager

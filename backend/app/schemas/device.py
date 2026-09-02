@@ -33,3 +33,15 @@ class DeviceOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ReadingPoint(BaseModel):
+    time: datetime
+    field: str
+    value: float
+
+
+class ReadingsOut(BaseModel):
+    device_id: str
+    latest_estado: str | None
+    points: list[ReadingPoint]

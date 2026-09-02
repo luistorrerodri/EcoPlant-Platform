@@ -8,9 +8,9 @@ from app.deps import get_current_user
 from app.models.device import Device
 from app.models.location import Location
 from app.models.user import User
-from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate
+from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
 from app.security import verify_claim_code
-from app.services import mqtt_client
+from app.services import influx_client, mqtt_client
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -94,6 +94,17 @@ def update_device(
     db.commit()
     db.refresh(device)
     return device
+
+
+@router.get("/{device_id}/readings", response_model=ReadingsOut)
+def get_readings(
+    device_id: str,
+    hours: int = 24,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    _get_owned_device_or_404(device_id, user, db)  # comprobacion de propiedad
+    return influx_client.get_readings(device_id, hours)
 
 
 @router.post("/{device_id}/water", status_code=status.HTTP_202_ACCEPTED)
