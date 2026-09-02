@@ -10,10 +10,22 @@ _query_api = _client.query_api()
 NUMERIC_FIELDS = ["humedad_suelo", "temp_aire", "presion"]
 
 
+def _aggregate_window(hours: int) -> str:
+    # El ESP32 publica cada 4s: sin agregar, 24h son ~21.600 puntos
+    # por campo, demasiado para pintar en un grafico o una respuesta
+    # de API. Se reduce la resolucion segun el rango pedido.
+    if hours <= 6:
+        return "1m"
+    if hours <= 48:
+        return "10m"
+    return "1h"
+
+
 def get_readings(device_id: str, hours: int) -> dict:
     # Mismo patron de filtros que ya usa el resto del repo
     # (_measurement -> _field -> device_id), uno por campo numerico
     # para no mezclar escalas distintas en la misma serie.
+    window = _aggregate_window(hours)
     points: list[dict] = []
     for field in NUMERIC_FIELDS:
         flux = f'''
@@ -22,6 +34,7 @@ def get_readings(device_id: str, hours: int) -> dict:
           |> filter(fn: (r) => r._measurement == "sensores")
           |> filter(fn: (r) => r._field == "{field}")
           |> filter(fn: (r) => r.device_id == "{device_id}")
+          |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)
         '''
         tables = _query_api.query(flux)
         for table in tables:
