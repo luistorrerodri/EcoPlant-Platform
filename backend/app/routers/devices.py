@@ -10,6 +10,7 @@ from app.models.location import Location
 from app.models.user import User
 from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate
 from app.security import verify_claim_code
+from app.services import mqtt_client
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -93,6 +94,15 @@ def update_device(
     db.commit()
     db.refresh(device)
     return device
+
+
+@router.post("/{device_id}/water", status_code=status.HTTP_202_ACCEPTED)
+def water_device(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict[str, str]:
+    _get_owned_device_or_404(device_id, user, db)  # comprobacion de propiedad
+    mqtt_client.publish_water_command(device_id)
+    return {"status": "comando de riego enviado"}
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
