@@ -4,8 +4,13 @@ sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
 pydantic-settings==2.7.1
+email-validator==2.2.0
 pyjwt==2.10.1
 passlib[bcrypt]==1.7.4
+# passlib 1.7.4 (2020) no es compatible con bcrypt>=4.1 (quitaron el
+# atributo __about__ que passlib usa para detectar la version) - se
+# fija una version anterior compatible para evitar el fallo.
+bcrypt==4.0.1
 python-multipart==0.0.20
 paho-mqtt==2.1.0
 influxdb-client==1.48.0
