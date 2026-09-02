@@ -2,7 +2,7 @@
 
 Instalación y configuración del stack del servidor sobre Raspberry Pi (Debian Bookworm, ARM64).
 
-Componentes: **Mosquitto** (broker MQTT) · **Node-RED** (lógica y dashboard) · **InfluxDB 2.x** (series temporales) · **Grafana** (visualización).
+Componentes: **Mosquitto** (broker MQTT) · **Node-RED** (lógica y dashboard) · **InfluxDB 2.x** (series temporales) · **Grafana** (visualización) · **PostgreSQL** + **Backend API** (usuarios, ubicaciones, dispositivos).
 
 ---
 
@@ -466,6 +466,122 @@ sudo systemctl stop cloudflared-demo
 
 ---
 
+## 6. Backend API
+
+Servicio nuevo y aditivo (FastAPI + PostgreSQL) que añade usuarios, ubicaciones y permisos — el modelo *usuario → ubicación → dispositivo* — por delante de la plataforma existente. No sustituye nada: Node-RED sigue decidiendo cuándo regar y sirviendo su propio dashboard; este servicio es la capa de autenticación y API que se monta al lado. Detalle de diseño en [`../docs/architecture.md`](../docs/architecture.md), instrucciones de desarrollo en [`../backend/README.md`](../backend/README.md).
+
+### PostgreSQL
+
+```bash
+sudo apt install -y postgresql
+sudo -u postgres psql -c "CREATE ROLE ecoplant WITH LOGIN PASSWORD '<password>';"
+sudo -u postgres psql -c "CREATE DATABASE ecoplant OWNER ecoplant;"
+```
+
+### Certificado de cliente (mTLS) para el backend
+
+Mismo procedimiento que para `nodered`/`macetero01` (ver "Certificados de cliente (mTLS)" más arriba), con CN `backend-api`:
+
+```bash
+cd ~/certs/clients
+openssl genrsa -out backend-api.key 2048
+openssl req -new -key backend-api.key -out backend-api.csr -subj "/C=ES/ST=Alicante/L=Aspe/O=EcoPlant/CN=backend-api"
+openssl x509 -req -in backend-api.csr -CA ../ca.crt -CAkey ../ca.key -CAcreateserial -out backend-api.crt -days 730
+openssl verify -CAfile ../ca.crt backend-api.crt
+mv backend-api.crt backend-api.key ~/certs/
+chmod 600 ~/certs/backend-api.key
+```
+
+Añadir a `/etc/mosquitto/acl`:
+
+```
+# Backend API: publica comandos de riego para dispositivos reclamados
+# y consulta estado/presencia (el histórico se lee de InfluxDB, no MQTT)
+user backend-api
+topic write maceteros/+/comando
+topic read  maceteros/+/estado
+topic read  maceteros/+/sensores
+```
+
+```bash
+sudo systemctl restart mosquitto
+```
+
+### Token de InfluxDB (solo lectura)
+
+En `http://<ip-raspberry>:8086` → *Load Data → API Tokens → Generate API Token → Custom API Token*: nombre `backend-api-readonly`, marcar **Read** (no Write) sobre el bucket `macetero_iot`. Distinto del token de Node-RED, que sí tiene escritura.
+
+### Despliegue
+
+```bash
+git clone https://github.com/luistorrerodri/EcoPlant-Platform.git ~/EcoPlant-Platform
+cd ~/EcoPlant-Platform/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env   # rellenar con los valores reales (ver backend/README.md)
+alembic upgrade head
+```
+
+Servicio systemd, **habilitado al arrancar** (a diferencia de `cloudflared-demo`: este servicio escucha solo en `127.0.0.1`, igual que Node-RED e InfluxDB, que también arrancan solos — lo que decide qué es alcanzable desde fuera es Caddy y el túnel, no si este servicio está vivo):
+
+```bash
+sudo nano /etc/systemd/system/ecoplant-backend.service
+```
+
+```ini
+[Unit]
+Description=EcoPlant Platform - Backend API (FastAPI)
+After=network-online.target postgresql.service mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=piluis
+WorkingDirectory=/home/piluis/EcoPlant-Platform/backend
+EnvironmentFile=/home/piluis/EcoPlant-Platform/backend/.env
+ExecStart=/home/piluis/EcoPlant-Platform/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ecoplant-backend
+```
+
+### Caddyfile
+
+Nuevo bloque junto al de `/ui`, dentro del mismo `http://127.0.0.1:8080 { ... }`:
+
+```
+@api path /api/*
+handle @api {
+	reverse_proxy localhost:8000
+}
+```
+
+```bash
+sudo caddy reload --config /etc/caddy/Caddyfile
+```
+
+Con esto, `/api/docs` (Swagger) queda accesible por el mismo camino que `/ui` — local, por Caddy, y a través del Quick Tunnel cuando está levantado — mientras que el resto (editor de Node-RED, InfluxDB, Grafana, la propia base de datos) nunca se expone.
+
+### Verificación
+
+```bash
+curl -s http://localhost:8000/api/health                                   # directo al backend
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/api/health   # a traves de Caddy, debe dar 200
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/flows        # debe seguir dando 404
+sudo journalctl -u ecoplant-backend -n 20 --no-pager                        # confirmar que conecto a Postgres y MQTT sin errores
+```
+
+Con `cloudflared-demo` levantado, `<url>/api/docs` debe cargar el Swagger desde fuera, y permitir registrarse, crear una ubicación, reclamar un dispositivo y regarlo — igual que en local.
+
+---
+
 ## Verificación del stack completo
 
 ```bash
@@ -493,8 +609,11 @@ El dato debe aparecer en el bucket `macetero_iot` de InfluxDB y, por tanto, en G
 | Node-RED | 1880 | editor y dashboard separados | — |
 | InfluxDB | 8086 | usuario/contraseña + token API | — |
 | Grafana | 3000 | usuario/contraseña | — |
+| Backend API | 8000 | JWT (registro/login propios) | — |
+| PostgreSQL | 5432 | usuario/contraseña, solo `127.0.0.1` | — |
+| Caddy | 8080 | delega en cada servicio proxied | — |
 
-El puerto MQTT sin cifrar (1883) está cerrado. Los tres servicios web sirven por HTTP sin cifrar: es asumible en una red local aislada, pero exponerlos a internet requiere un reverse proxy con HTTPS delante.
+El puerto MQTT sin cifrar (1883) está cerrado. Los servicios web (Node-RED, InfluxDB, Grafana, Backend API, Caddy) hablan HTTP sin cifrar entre sí en `127.0.0.1`: asumible porque nada de eso escucha en la red, solo en loopback. Lo único que sale de la Pi es lo que Caddy reenvía explícitamente (`/ui`, `/api/*`) a través del Cloudflare Tunnel, con TLS gestionado por Cloudflare — ver "Acceso remoto" más arriba.
 
 ---
 
@@ -507,9 +626,11 @@ Los siguientes elementos no se regeneran solos y conviene respaldarlos:
 | Flujos y credenciales de Node-RED | `~/.node-red/flows.json`, `~/.node-red/flows_cred.json` |
 | Clave de cifrado de credenciales | `credentialSecret` en `settings.js` |
 | Contexto persistente (parámetros de riego) | `~/.node-red/context/` |
-| CA y certificado del servidor | `~/certs/` (en la máquina donde vive la CA, no necesariamente la Pi) |
-| Certificados de cliente (Node-RED, por dispositivo) | `~/certs/clients/` y `~/certs/nodered.{crt,key}` en la Pi |
+| CA y certificado del servidor | `~/certs/` en la Pi (`ca.key` cifrada con contraseña) |
+| Certificados de cliente (Node-RED, backend, por dispositivo) | `~/certs/clients/` y `~/certs/{nodered,backend-api}.{crt,key}` en la Pi |
 | ACLs del broker | `/etc/mosquitto/acl` |
 | Datos históricos | `/var/lib/influxdb/` |
+| Base de datos de usuarios/ubicaciones/dispositivos | `pg_dump ecoplant` (PostgreSQL) |
+| Variables de entorno del backend | `backend/.env` (fuera del repo, gitignored) |
 
-La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos.
+La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos. Vive en la propia Pi, cifrada con una contraseña que solo conoce el operador — mitiga que alguien robe el archivo y lo use directamente, pero no es lo mismo que mantenerla en una máquina totalmente separada del servidor; moverla fuera de la Pi queda como mejora de seguridad pendiente.

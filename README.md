@@ -14,6 +14,7 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Permite riego manual bajo demanda desde un dashboard web
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
+- API multiusuario propia (registro, ubicaciones, dispositivos), lista para una futura app móvil o portal web
 
 ## Arquitectura
 
@@ -51,7 +52,8 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 | Persistencia | InfluxDB 2.x (series temporales) |
 | Visualización | Grafana + Node-RED Dashboard |
 | Servidor | Raspberry Pi (Debian Bookworm, ARM64) |
-| Acceso remoto | Caddy (proxy, solo expone `/ui`) + Cloudflare Tunnel |
+| Acceso remoto | Caddy (proxy, solo expone `/ui` y `/api/*`) + Cloudflare Tunnel |
+| Backend API | Python + FastAPI, PostgreSQL |
 
 ## Estado actual
 
@@ -68,7 +70,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Seguridad: autenticación por dispositivo, ACLs por topic y MQTT sobre TLS
 - [x] Autenticación mutua (mTLS) con certificado por dispositivo
 - [x] Acceso remoto seguro (reverse proxy con HTTPS): dashboard accesible desde fuera bajo demanda, sin abrir puertos en el router
-- [ ] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
+- [x] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
 - [ ] App móvil
 - [ ] Integración meteorológica y analítica sobre el histórico
 
@@ -85,6 +87,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 
 - [`firmware/`](firmware/) — código del ESP32 y guía de compilación/flasheo
 - [`platform/`](platform/) — configuración de Node-RED, Grafana, y guía de instalación del stack en Raspberry Pi
+- [`backend/`](backend/) — API multiusuario (FastAPI + PostgreSQL): usuarios, ubicaciones, dispositivos
 - [`docs/`](docs/) — arquitectura, hardware, troubleshooting y roadmap detallados
 
 ## Autor

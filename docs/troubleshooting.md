@@ -262,3 +262,51 @@ Con eso resuelto, apareció el segundo fallo: **todas** las rutas devolvían `20
 Así Caddy escucha solo en loopback (nada expuesto a la red local ni a internet salvo lo que decida reenviar `cloudflared`) sin exigir un `Host` concreto.
 
 **Aprendizaje**: cuando el comportamiento observado no cuadra con la configuración que se cree tener cargada, preguntarle directamente al proceso en marcha (aquí, la API de admin de Caddy en `:2019`) qué tiene activo de verdad ahorra mucho tiempo frente a seguir editando el archivo a ciegas — el archivo puede ser correcto y aun así no significar lo que se piensa que significa. Y una dirección de sitio en un Caddyfile no es solo "dónde escuchar": mezclar ahí una IP tiene efectos de *matching* que no son obvios a primera vista.
+
+---
+
+## 15. `alembic revision --autogenerate` falla: la carpeta `versions/` nunca llegó al repositorio
+
+**Síntoma**: al construir el backend, el primer `alembic revision --autogenerate` en la Pi terminaba con `FileNotFoundError: [Errno 2] No such file or directory: '.../alembic/versions/....py'`. Justo después, `alembic upgrade head` "funcionaba" sin error, pero `\dt` en `psql` solo mostraba la tabla de control `alembic_version`, vacía — ninguna de las tablas del modelo se había creado.
+
+**Diagnóstico**: Git no versiona directorios vacíos. `backend/alembic/versions/` se había creado localmente pero, al no contener ningún archivo trackeado, nunca se incluyó en los commits — al clonar/hacer `pull` en la Pi, la carpeta simplemente no existía, así que Alembic no tenía dónde escribir el archivo de migración nuevo.
+
+**Solución**: añadir un archivo `.gitkeep` (vacío, solo para que Git tenga algo que trackear) dentro de `alembic/versions/`, confirmar con `git ls-files` que la carpeta ya se versiona, y repetir `alembic revision --autogenerate` + `alembic upgrade head`.
+
+**Aprendizaje**: cuando una herramienta necesita escribir en una carpeta que "debería estar ahí" porque se creó en algún momento, comprobar que esa carpeta llegó de verdad al control de versiones — `mkdir` local y "está en el repo" no son lo mismo si la carpeta se queda vacía.
+
+---
+
+## 16. `passlib` no es compatible con las versiones recientes de `bcrypt`
+
+**Síntoma**: sin llegar a probarse en producción — se detectó antes de desplegar. `passlib[bcrypt]==1.7.4` es la última versión publicada (2020) y no reconoce el paquete `bcrypt` a partir de la versión 4.1, que eliminó el atributo `__about__` que `passlib` usa internamente para detectar qué versión de `bcrypt` tiene instalada.
+
+**Diagnóstico**: al no fijar una versión concreta de `bcrypt` en `requirements.txt`, `pip` resolvía la última disponible (5.0.0 en el momento de instalar), incompatible con `passlib` 1.7.4.
+
+**Solución**: fijar explícitamente `bcrypt==4.0.1` en `requirements.txt`, anterior al cambio que rompe la compatibilidad.
+
+**Aprendizaje**: cuando una dependencia (aquí `passlib`) lleva años sin publicar una versión nueva, sus propias sub-dependencias no fijadas (`bcrypt`, en este caso, tirado por el extra `passlib[bcrypt]`) pueden evolucionar por delante y romper la compatibilidad sin que `passlib` se entere. Vale la pena fijar explícitamente la sub-dependencia cuando el paquete principal está claramente desactualizado, en vez de confiar en que el resolutor de `pip` elija algo compatible.
+
+---
+
+## 17. Swagger UI se rompe (`RangeError: Maximum call stack size exceeded`) con una respuesta JSON demasiado grande
+
+**Síntoma**: el endpoint de lecturas históricas (`GET /devices/{id}/readings`) respondía `200 OK` — confirmado en el log del servidor — pero el Swagger UI se quedaba con el mensaje "Could not render responses_Responses, see the console", y la consola del navegador mostraba `RangeError: Maximum call stack size exceeded` dentro de su resaltador de sintaxis (`SyntaxHighlighter`).
+
+**Diagnóstico**: la API funcionaba correctamente; el fallo era enteramente del lado del navegador. La causa raíz, sin embargo, sí era un problema real de diseño: la consulta a InfluxDB devolvía **cada lectura individual** del ESP32 (una cada 4 segundos) sin agregar, lo que para una ventana de 24 horas son del orden de 21.600 puntos por campo numérico — unos 2,2 MB de JSON. El resaltador de sintaxis de Swagger UI no soporta respuestas de ese tamaño y su función recursiva de procesado agota la pila de llamadas del navegador.
+
+**Solución**: añadir `aggregateWindow()` a la consulta Flux, con una resolución que depende del rango pedido (1 minuto hasta 6h, 10 minutos hasta 48h, 1 hora por encima). La misma respuesta pasó de 2.212.266 a 16.430 bytes, y Swagger la renderiza sin problema.
+
+**Aprendizaje**: un `200 OK` en el log del servidor no significa que el endpoint esté bien diseñado — nadie necesita, ni ningún cliente (app, web, gráfico) debería recibir, una lectura suelta cada 4 segundos para pintar 24 horas de histórico. El error de Swagger UI fue, en la práctica, una señal útil (aunque indirecta) de un problema real de la API que convenía arreglar de todas formas.
+
+---
+
+## 18. `git push` desde la Pi falla: identidad sin configurar y token de solo lectura
+
+**Síntoma**: al intentar subir un commit generado en la propia Pi (una migración de Alembic), dos fallos sucesivos: primero `git commit` se negaba con "Identidad del autor desconocida"; después de arreglarlo, `git push` fallaba con `403: Write access to repository not granted`.
+
+**Diagnóstico**: la Pi se había clonado con un token de acceso personal (fine-grained) creado a propósito con permiso de **Contents: Read-only**, suficiente en su momento porque solo se necesitaba `git pull`. Además, nunca se había configurado `user.name`/`user.email` en esa máquina, porque hasta entonces nunca se había hecho un commit ahí.
+
+**Solución**: `git config --global user.name "..."` y `user.email "..."` para lo primero; para lo segundo, editar el token en GitHub (Settings → Developer settings → Fine-grained tokens) y subir el permiso de **Contents** a **Read and write**.
+
+**Aprendizaje**: dar el mínimo permiso necesario en cada momento (aquí, solo lectura para clonar) es la práctica correcta, pero implica recordar ampliarlo explícitamente cuando el uso de esa credencial cambia — no es un fallo de configuración, es el sistema de permisos haciendo justo lo que se le pidió.

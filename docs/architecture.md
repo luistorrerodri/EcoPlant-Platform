@@ -103,7 +103,7 @@ Toda la comunicación MQTT viaja sobre TLS 1.2 en el puerto 8883. El puerto 1883
 
 Se emplea una **autoridad certificadora propia**: la CA firma el certificado del broker, y cada dispositivo lleva embebido el certificado de la CA para verificar que se conecta al broker legítimo y no a un suplantador. Es el mismo modelo de confianza de HTTPS, con la organización actuando como autoridad en lugar de una CA pública.
 
-La clave privada de la CA no reside en el servidor: se mantiene fuera del alcance de los servicios, ya que solo se necesita para firmar certificados nuevos.
+La clave privada de la CA vive en la propia Raspberry Pi (`~/certs/ca.key`), cifrada con una contraseña que solo conoce el operador — no está en texto plano ni la usa ningún servicio en su día a día, solo se necesita para firmar certificados nuevos. Es una mitigación razonable (un archivo robado no sirve de nada sin la contraseña) pero no equivale a mantenerla en una máquina separada del servidor: si la Pi se viera comprometida durante un tiempo prolongado, la contraseña podría capturarse la próxima vez que se usara. Moverla a una máquina offline queda como mejora pendiente.
 
 La verificación es **mutua**: el dispositivo comprueba la identidad del broker (con `CA_CERT`) y el broker comprueba la identidad del dispositivo (con su certificado de cliente, `CLIENT_CERT`/`CLIENT_KEY`, firmado por la misma CA). El broker exige ese certificado antes de completar el handshake (`require_certificate`) y deriva la identidad de su CN en lugar de un usuario/contraseña (`use_identity_as_username`) — es el estándar en despliegues IoT de producción. Detalle de la generación de certificados de cliente en [`../platform/README.md`](../platform/README.md#certificados-de-cliente-mtls).
 
@@ -159,9 +159,25 @@ Los parámetros de cada macetero (umbral de humedad, franja horaria de riego per
 
 Esta estructura, indexada por dispositivo desde el primer momento aunque hoy solo exista un macetero, es la que permite que escalar a múltiples dispositivos sea añadir una entrada al objeto, no rediseñar el sistema.
 
+**Nota**: este umbral/franja horaria sigue viviendo aquí, en Node-RED, incluso después de añadir el backend multiusuario (siguiente sección). No se ha migrado a la base de datos relacional nueva en esta iteración — es un follow-up natural, no un olvido.
+
+## Backend multiusuario
+
+Node-RED resuelve bien la orquestación (sensores, lógica de riego, un dashboard), pero no tiene ni tenía previsto tener un modelo de usuarios: cualquiera con la contraseña del `httpNodeAuth` ve y controla todo. El backend nuevo (FastAPI + PostgreSQL, en `backend/`) añade esa capa por delante, sin sustituir nada — es una pieza aditiva, un peer de Node-RED, no un reemplazo.
+
+**Por qué una base de datos relacional aparte, y no extender el *context store* de Node-RED**: el modelo `usuario → ubicación → dispositivo` es fundamentalmente relacional (claves foráneas, restricciones de unicidad, permisos por propietario) — forzar eso sobre un almacén de pares clave-valor pensado para configuración de dispositivos habría sido más frágil que levantar una base de datos que ya está diseñada para este problema. PostgreSQL en concreto, y no SQLite, porque el resto de la plataforma ya trata "instalar el servidor de base de datos real como servicio systemd" como la norma (InfluxDB es el precedente directo), y porque SQLite con varios workers de `uvicorn` tiene un problema real de bloqueo de escritura de un solo archivo.
+
+**Autenticación con tokens revocables, no solo un JWT de larga duración**: el token de acceso es un JWT de corta duración (30 min por defecto); el de refresco es un secreto aleatorio cuyo *hash* se guarda en una tabla (`refresh_tokens`), no el valor en sí — igual que una contraseña. Esto es lo que hace posible un logout real y que cambiar la contraseña invalide las sesiones activas: con un JWT de refresco puro (sin estado en el servidor), no hay forma de revocar nada antes de que expire por sí solo.
+
+**El código de reclamación de dispositivos**: cada macetero es un objeto físico, preflasheado con un `DEVICE_ID` fijo — no hay forma de que se autoprovisione ni de que "sepa" a qué usuario pertenece. Para asociarlo a una cuenta hace falta un secreto compartido fuera de banda, igual que un certificado de cliente se entrega físicamente a un dispositivo: el operador siembra el dispositivo (`POST /api/admin/devices/seed`) y obtiene un código de un solo uso, que se hashea igual que una contraseña y se entrega por otro canal (una pegatina en el macetero, un mensaje al usuario). El propio usuario lo introduce junto al `device_id` para reclamarlo. Sin CRL ni revocación de certificados de por medio, es el mecanismo más simple que sigue exigiendo prueba de posesión física del dispositivo.
+
+**Alcance de esta iteración**: solo la API (documentada con Swagger en `/api/docs`), sin frontend ni app móvil todavía — son clientes futuros de esta misma API, no trabajo que haya que rehacer. Sin envío de emails: el registro activa la cuenta al momento, sin verificación por correo ni recuperación de contraseña por email (hay un `change-password` para quien ya tiene sesión). Detalle completo del modelo de datos, endpoints y despliegue en [`../platform/README.md`](../platform/README.md#6-backend-api) y [`../backend/README.md`](../backend/README.md).
+
 ## Limitaciones conocidas y trabajo pendiente
 
-- La configuración vive en el *global context* de Node-RED con persistencia en disco (`localfilesystem`), no en una base de datos. Es suficiente para el número actual de dispositivos, pero una base de datos relacional será necesaria cuando entren en juego usuarios, permisos y relaciones entre entidades.
+- Sin *rate limiting* en `/api/auth/register` ni `/api/auth/login`: durante una demo con el túnel levantado, es una puerta abierta a intentos de fuerza bruta o registro masivo. Mismo tipo de limitación que la falta de CRL en mTLS — documentada, no resuelta todavía.
+- Un dispositivo desenganchado no se puede volver a reclamar sin que un administrador rote un código nuevo (el código es de un solo uso y no se restaura solo). Asumible con un único operador; habría que revisarlo si algún día hay varios administradores.
+- Sin verificación de email ni recuperación de contraseña por correo — vive como mejora futura, no como parte de esta iteración.
 - No hay lista de revocación (CRL): revocar un dispositivo comprometido de forma robusta exige hoy regenerar la CA, no solo quitarlo de la ACL.
 - El acceso a Node-RED, Grafana e InfluxDB dentro de la red local es por HTTP sin cifrar — asumible por ser una red aislada. Solo el dashboard (`/ui`) sale al exterior, y lo hace vía Cloudflare Tunnel (HTTPS gestionado por Cloudflare) más un proxy local que bloquea todo lo demás; Grafana e InfluxDB nunca se exponen a internet.
 - Las confirmaciones de riego no distinguen si la orden fue manual o automática, de modo que un riego manual también bloquea el automático durante 24 horas. Es el comportamiento deseado hoy, pero convendría diferenciarlo si se quieren políticas distintas.
