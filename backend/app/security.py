@@ -41,6 +41,12 @@ def decode_access_token(token: str) -> dict:
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 
+def generate_claim_code() -> str:
+    # ~12 caracteres, suficiente entropia para un secreto de un solo
+    # uso que ademas va acompañado del device_id al reclamar.
+    return secrets.token_urlsafe(9)
+
+
 def generate_refresh_token() -> str:
     # Alta entropia por si sola (256 bits) - a diferencia de una
     # contraseña, no necesita un hash lento, basta uno rapido y
