@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import * as authApi from "../api/auth";
 import { registerSessionExpiredHandler } from "../api/client";
+import { registerForPushNotifications } from "../notifications";
 import type { UserOut } from "../types/api";
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from "./secureStorage";
 
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token) {
         try {
           setUser(await authApi.me());
+          registerForPushNotifications();
         } catch {
           setUser(null);
         }
@@ -43,12 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tokens = await authApi.login(email, password);
     await saveTokens(tokens.access_token, tokens.refresh_token);
     setUser(await authApi.me());
+    registerForPushNotifications();
   }
 
   async function register(email: string, password: string, fullName?: string) {
     const tokens = await authApi.register(email, password, fullName);
     await saveTokens(tokens.access_token, tokens.refresh_token);
     setUser(await authApi.me());
+    registerForPushNotifications();
   }
 
   async function logout() {
