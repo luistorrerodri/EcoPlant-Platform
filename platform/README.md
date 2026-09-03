@@ -389,7 +389,7 @@ En `/etc/caddy/Caddyfile`:
 
 ```
 :8080 {
-	bind 127.0.0.1
+	bind 127.0.0.1 192.168.1.140
 
 	@dashboard path /ui /ui/*
 	handle @dashboard {
@@ -409,6 +409,8 @@ Dos detalles que costó descubrir (ver [`../docs/troubleshooting.md`](../docs/tr
 
 - Sin el prefijo `:8080` a secas (sin IP delante), Caddy asume HTTPS con su propia CA interna por defecto — de ahí que se use `bind 127.0.0.1` en vez de escribir `127.0.0.1:8080`, que además de fijar la interfaz de escucha, Caddy lo interpreta también como un filtro sobre la cabecera `Host`.
 - `httpNodeAuth` (usuario/contraseña del dashboard, ya configurado en Node-RED) se mantiene detrás de Caddy sin cambios — sigue pidiendo login incluso llegando por el túnel.
+
+`bind` acepta varias direcciones: además de `127.0.0.1` (para `cloudflared`, que corre en la propia Pi), se añadió la IP de la Pi en la LAN (`192.168.1.140`) para que la app móvil pueda hablar con la API directamente por WiFi durante el desarrollo, sin depender del túnel. Sigue sin haber nada expuesto a internet (no hay *port-forwarding* en el router) — es una extensión deliberada del mismo nivel de confianza que ya tenían Node-RED, Grafana e InfluxDB.
 
 Verificación desde la propia Pi antes de tocar el túnel:
 

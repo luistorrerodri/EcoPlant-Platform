@@ -14,7 +14,8 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Permite riego manual bajo demanda desde un dashboard web
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
-- API multiusuario propia (registro, ubicaciones, dispositivos), lista para una futura app móvil o portal web
+- API multiusuario propia (registro, ubicaciones, dispositivos), consumida por una app móvil real (Android, misma base para iOS)
+- Notificaciones push cuando un macetero se desconecta o termina de regar
 
 ## Arquitectura
 
@@ -54,6 +55,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 | Servidor | Raspberry Pi (Debian Bookworm, ARM64) |
 | Acceso remoto | Caddy (proxy, solo expone `/ui` y `/api/*`) + Cloudflare Tunnel |
 | Backend API | Python + FastAPI, PostgreSQL |
+| App móvil | React Native + Expo (TypeScript), notificaciones push vía Firebase/FCM |
 
 ## Estado actual
 
@@ -71,7 +73,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Autenticación mutua (mTLS) con certificado por dispositivo
 - [x] Acceso remoto seguro (reverse proxy con HTTPS): dashboard accesible desde fuera bajo demanda, sin abrir puertos en el router
 - [x] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
-- [ ] App móvil
+- [x] App móvil: login, ubicaciones, dispositivos, histórico, riego manual y notificaciones push
 - [ ] Integración meteorológica y analítica sobre el histórico
 
 ## Problemas reales resueltos
@@ -88,6 +90,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - [`firmware/`](firmware/) — código del ESP32 y guía de compilación/flasheo
 - [`platform/`](platform/) — configuración de Node-RED, Grafana, y guía de instalación del stack en Raspberry Pi
 - [`backend/`](backend/) — API multiusuario (FastAPI + PostgreSQL): usuarios, ubicaciones, dispositivos
+- [`mobile/`](mobile/) — app móvil (React Native + Expo): consume la API del backend
 - [`docs/`](docs/) — arquitectura, hardware, troubleshooting y roadmap detallados
 
 ## Autor
