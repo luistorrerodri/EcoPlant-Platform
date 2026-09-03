@@ -18,7 +18,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": true,
-      "package": "com.ecoplantplatform.ecoplantmobile"
+      "package": "com.ecoplantplatform.ecoplantmobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
