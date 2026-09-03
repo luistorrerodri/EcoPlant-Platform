@@ -25,6 +25,12 @@
     "plugins": [
       "expo-secure-store",
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c394ac9b-f94c-4b3c-b362-b885ecb20f17"
+      }
+    },
+    "owner": "ecoplant-platform"
   }
 }
