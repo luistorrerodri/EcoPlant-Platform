@@ -10,6 +10,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import (
     ChangePasswordRequest,
+    PushTokenRequest,
     RefreshRequest,
     TokenPair,
     UserCreate,
@@ -109,6 +110,14 @@ def logout(data: RefreshRequest, db: Session = Depends(get_db)) -> None:
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)) -> User:
     return user
+
+
+@router.post("/push-token", status_code=status.HTTP_204_NO_CONTENT)
+def set_push_token(
+    data: PushTokenRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> None:
+    user.push_token = data.push_token
+    db.commit()
 
 
 @router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)

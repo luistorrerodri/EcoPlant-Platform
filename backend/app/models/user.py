@@ -19,6 +19,12 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Token de push de Expo del ultimo dispositivo movil en el que se
+    # inicio sesion. Uno solo por usuario (no por dispositivo/
+    # instalacion) - suficiente para el alcance actual de un usuario
+    # real; si el proyecto gana usuarios con varios moviles habria que
+    # pasar a una tabla aparte.
+    push_token: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     locations: Mapped[list["Location"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
