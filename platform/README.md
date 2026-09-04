@@ -660,6 +660,17 @@ Después, para que el dashboard no pelee con el sondeo escribiendo `config_macet
 
 Deploy, y confirmar en el panel de debug que "Aplicar config recibida" da exactamente los mismos valores que el `curl` de arriba. Dejar correr al menos un ciclo completo sin tocar nada más y confirmar que no se dispara ningún riego inesperado — el sistema debe comportarse igual que antes de este cambio.
 
+### Interior / exterior por dispositivo
+
+Columna `environment` en `devices` (roadmap punto 2, `docs/architecture.md`). A diferencia del catálogo de plantas, esta migración no toca Node-RED ni necesita ningún token nuevo — es puramente aditiva y nadie la lee todavía:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && alembic upgrade head
+sudo systemctl restart ecoplant-backend
+curl -s http://localhost:8000/api/health
+```
+
 ---
 
 ## Verificación del stack completo

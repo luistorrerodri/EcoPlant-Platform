@@ -103,6 +103,8 @@ def update_device(
         device.hora_inicio = data.hora_inicio
     if data.hora_fin is not None:
         device.hora_fin = data.hora_fin
+    if data.environment is not None:
+        device.environment = data.environment
     db.commit()
     db.refresh(device)
     return device

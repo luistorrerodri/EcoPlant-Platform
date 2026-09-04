@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { DeviceOut, ReadingsOut } from "../types/api";
+import type { DeviceEnvironment, DeviceOut, ReadingsOut } from "../types/api";
 
 export function listDevices(): Promise<DeviceOut[]> {
   return apiRequest<DeviceOut[]>("/api/devices");
@@ -32,6 +32,7 @@ export interface DeviceConfigUpdate {
   humedad_min?: number;
   hora_inicio?: number;
   hora_fin?: number;
+  environment?: DeviceEnvironment;
 }
 
 export function updateDeviceConfig(deviceId: string, config: DeviceConfigUpdate): Promise<DeviceOut> {

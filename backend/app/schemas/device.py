@@ -1,7 +1,10 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+Environment = Literal["interior", "exterior"]
 
 
 class DeviceSeedRequest(BaseModel):
@@ -27,6 +30,7 @@ class DeviceUpdate(BaseModel):
     humedad_min: int | None = Field(default=None, ge=0, le=100)
     hora_inicio: int | None = Field(default=None, ge=0, le=23)
     hora_fin: int | None = Field(default=None, ge=0, le=23)
+    environment: Environment | None = None
 
 
 class DeviceOut(BaseModel):
@@ -38,6 +42,7 @@ class DeviceOut(BaseModel):
     hora_inicio: int
     hora_fin: int
     duracion_riego_ms: int
+    environment: Environment | None
     claimed_at: datetime | None
     created_at: datetime
 

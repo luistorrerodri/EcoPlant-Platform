@@ -36,6 +36,11 @@ class Device(Base):
     hora_fin: Mapped[int] = mapped_column(Integer, server_default="21")
     duracion_riego_ms: Mapped[int] = mapped_column(Integer, server_default="9000")
 
+    # "interior" | "exterior" | NULL (sin especificar). No cambia nada del
+    # ciclo de riego por si sola - es la bandera que decidira mas adelante
+    # si se consulta la API meteorologica antes de regar en automatico.
+    environment: Mapped[str | None] = mapped_column(String(20))
+
     # Hash del codigo de reclamacion (bcrypt, igual que una contraseña).
     # Se pone a NULL en cuanto se reclama - de un solo uso. Para volver
     # a reclamar un dispositivo desenganchado hace falta que un admin

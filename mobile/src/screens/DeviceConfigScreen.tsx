@@ -18,7 +18,7 @@ import * as devicesApi from "../api/devices";
 import * as plantTypesApi from "../api/plantTypes";
 import { ApiError } from "../api/client";
 import type { LocationsStackParamList } from "../navigation/LocationsStack";
-import type { PlantTypeOut } from "../types/api";
+import type { DeviceEnvironment, PlantTypeOut } from "../types/api";
 
 type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceConfig">;
 
@@ -32,6 +32,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   const [humedadMin, setHumedadMin] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
+  const [environment, setEnvironment] = useState<DeviceEnvironment | null>(null);
 
   const deviceQuery = useQuery({
     queryKey: ["device", deviceId],
@@ -49,6 +50,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     setHumedadMin(String(deviceQuery.data.humedad_min));
     setHoraInicio(String(deviceQuery.data.hora_inicio));
     setHoraFin(String(deviceQuery.data.hora_fin));
+    setEnvironment(deviceQuery.data.environment);
     setIsInitialized(true);
   }, [isInitialized, deviceQuery.data]);
 
@@ -69,6 +71,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
         humedad_min: Number(humedadMin),
         hora_inicio: Number(horaInicio),
         hora_fin: Number(horaFin),
+        ...(environment ? { environment } : {}),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["device", deviceId] });
@@ -102,6 +105,21 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.label}>Ubicación de la planta</Text>
+      <View style={styles.envSelector}>
+        {(["interior", "exterior"] as DeviceEnvironment[]).map((option) => (
+          <Pressable
+            key={option}
+            style={[styles.envButton, environment === option && styles.envButtonActive]}
+            onPress={() => setEnvironment(option)}
+          >
+            <Text style={[styles.envButtonText, environment === option && styles.envButtonTextActive]}>
+              {option === "interior" ? "🏠 Interior" : "🌤️ Exterior"}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <Text style={styles.label}>Tipo de planta</Text>
       <Pressable style={styles.selector} onPress={() => setPickerOpen(true)}>
         <Text style={styles.selectorText}>{selectedPlantType?.name ?? "Sin tipo / personalizado"}</Text>
@@ -171,6 +189,17 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: "600", color: "#444", marginBottom: 6, marginTop: 16 },
   selector: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12 },
   selectorText: { fontSize: 16 },
+  envSelector: { flexDirection: "row", gap: 8 },
+  envButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+  },
+  envButtonActive: { backgroundColor: "#2e7d32" },
+  envButtonText: { color: "#333", fontWeight: "600" },
+  envButtonTextActive: { color: "#fff" },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, fontSize: 16 },
   saveButton: {
     backgroundColor: "#2e7d32",

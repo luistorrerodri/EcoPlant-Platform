@@ -22,6 +22,8 @@ export interface LocationOut {
   created_at: string;
 }
 
+export type DeviceEnvironment = "interior" | "exterior";
+
 export interface DeviceOut {
   device_id: string;
   name: string | null;
@@ -31,6 +33,7 @@ export interface DeviceOut {
   hora_inicio: number;
   hora_fin: number;
   duracion_riego_ms: number;
+  environment: DeviceEnvironment | null;
   claimed_at: string | null;
   created_at: string;
 }
