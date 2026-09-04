@@ -138,38 +138,6 @@
         "h": 82
     },
     {
-        "id": "85d22fc9d1c2c37a",
-        "type": "mqtt-broker",
-        "name": "planta_datos",
-        "broker": "192.168.1.140",
-        "port": "8883",
-        "tls": "0150765acf2ec8a7",
-        "clientid": "",
-        "autoConnect": true,
-        "usetls": true,
-        "protocolVersion": 4,
-        "keepalive": 60,
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthRetain": "false",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closeRetain": "false",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willRetain": "false",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
-    },
-    {
         "id": "8063f1beeed36a4f",
         "type": "ui_tab",
         "name": "Monstera",
@@ -303,8 +271,8 @@
         "id": "0150765acf2ec8a7",
         "type": "tls-config",
         "name": "EcoPlant CA",
-        "cert": "",
-        "key": "",
+        "cert": "/home/piluis/certs/nodered.crt",
+        "key": "/home/piluis/certs/nodered.key",
         "ca": "/etc/mosquitto/ca_certificates/ca.crt",
         "certname": "",
         "keyname": "",
@@ -312,6 +280,38 @@
         "servername": "",
         "verifyservercert": true,
         "alpnprotocol": ""
+    },
+    {
+        "id": "85d22fc9d1c2c37a",
+        "type": "mqtt-broker",
+        "name": "planta_datos",
+        "broker": "192.168.1.140",
+        "port": "8883",
+        "tls": "0150765acf2ec8a7",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
     },
     {
         "id": "548e24a4d662b7d7",
@@ -642,6 +642,7 @@
         "id": "7fad237b01ef932f",
         "type": "inject",
         "z": "8627a5733f13f310",
+        "d": true,
         "g": "3f00c4b8d0ee2468",
         "name": "Inicializar config",
         "props": [
@@ -672,6 +673,7 @@
         "id": "12ceb97fec943e58",
         "type": "function",
         "z": "8627a5733f13f310",
+        "d": true,
         "g": "3f00c4b8d0ee2468",
         "name": "Init config maceteros",
         "func": "let config = global.get('config_maceteros') || {};\n\nif (!config.macetero01) {\n    config.macetero01 = {\n        humedadMin: 36,\n        horaInicio: 8,\n        horaFin: 21,\n        duracionRiegoMs: 9000\n    };\n    global.set('config_maceteros', config);\n    node.warn('Config inicial creada para macetero01');\n} else {\n    node.warn('Config ya existía, no se sobreescribe');\n}\n\nmsg.payload = global.get('config_maceteros');\nreturn msg;",
@@ -693,6 +695,7 @@
         "id": "7e48714e9404697c",
         "type": "debug",
         "z": "8627a5733f13f310",
+        "d": true,
         "g": "3f00c4b8d0ee2468",
         "name": "debug 2",
         "active": true,
@@ -729,9 +732,7 @@
         "x": 700,
         "y": 440,
         "wires": [
-            [
-                "3d199dae3fd49796"
-            ]
+            []
         ]
     },
     {
@@ -820,126 +821,30 @@
         "passthru": true,
         "multiple": false,
         "options": [
-            {
-                "label": "0:00",
-                "value": 0,
-                "type": "num"
-            },
-            {
-                "label": "1:00",
-                "value": 1,
-                "type": "num"
-            },
-            {
-                "label": "2:00",
-                "value": 2,
-                "type": "num"
-            },
-            {
-                "label": "3:00",
-                "value": 3,
-                "type": "num"
-            },
-            {
-                "label": "4:00",
-                "value": 4,
-                "type": "num"
-            },
-            {
-                "label": "5:00",
-                "value": 5,
-                "type": "num"
-            },
-            {
-                "label": "6:00",
-                "value": 6,
-                "type": "num"
-            },
-            {
-                "label": "7:00",
-                "value": 7,
-                "type": "num"
-            },
-            {
-                "label": "8:00",
-                "value": 8,
-                "type": "num"
-            },
-            {
-                "label": "9:00",
-                "value": 9,
-                "type": "num"
-            },
-            {
-                "label": "10:00",
-                "value": 10,
-                "type": "num"
-            },
-            {
-                "label": "11:00",
-                "value": 11,
-                "type": "num"
-            },
-            {
-                "label": "12:00",
-                "value": 12,
-                "type": "num"
-            },
-            {
-                "label": "13:00",
-                "value": 13,
-                "type": "num"
-            },
-            {
-                "label": "14:00",
-                "value": 14,
-                "type": "num"
-            },
-            {
-                "label": "15:00",
-                "value": 15,
-                "type": "num"
-            },
-            {
-                "label": "16:00",
-                "value": 16,
-                "type": "num"
-            },
-            {
-                "label": "17:00",
-                "value": 17,
-                "type": "num"
-            },
-            {
-                "label": "18:00",
-                "value": 18,
-                "type": "num"
-            },
-            {
-                "label": "19:00",
-                "value": 19,
-                "type": "num"
-            },
-            {
-                "label": "20:00",
-                "value": 20,
-                "type": "num"
-            },
-            {
-                "label": "21:00",
-                "value": 21,
-                "type": "num"
-            },
-            {
-                "label": "22:00",
-                "value": 22,
-                "type": "num"
-            },
-            {
-                "label": "23:00",
-                "value": 23,
-                "type": "num"
-            }
+            { "label": "0:00", "value": 0, "type": "num" },
+            { "label": "1:00", "value": 1, "type": "num" },
+            { "label": "2:00", "value": 2, "type": "num" },
+            { "label": "3:00", "value": 3, "type": "num" },
+            { "label": "4:00", "value": 4, "type": "num" },
+            { "label": "5:00", "value": 5, "type": "num" },
+            { "label": "6:00", "value": 6, "type": "num" },
+            { "label": "7:00", "value": 7, "type": "num" },
+            { "label": "8:00", "value": 8, "type": "num" },
+            { "label": "9:00", "value": 9, "type": "num" },
+            { "label": "10:00", "value": 10, "type": "num" },
+            { "label": "11:00", "value": 11, "type": "num" },
+            { "label": "12:00", "value": 12, "type": "num" },
+            { "label": "13:00", "value": 13, "type": "num" },
+            { "label": "14:00", "value": 14, "type": "num" },
+            { "label": "15:00", "value": 15, "type": "num" },
+            { "label": "16:00", "value": 16, "type": "num" },
+            { "label": "17:00", "value": 17, "type": "num" },
+            { "label": "18:00", "value": 18, "type": "num" },
+            { "label": "19:00", "value": 19, "type": "num" },
+            { "label": "20:00", "value": 20, "type": "num" },
+            { "label": "21:00", "value": 21, "type": "num" },
+            { "label": "22:00", "value": 22, "type": "num" },
+            { "label": "23:00", "value": 23, "type": "num" }
         ],
         "payload": "",
         "topic": "horaInicio",
@@ -948,9 +853,7 @@
         "x": 680,
         "y": 240,
         "wires": [
-            [
-                "bbf9e403ff180c41"
-            ]
+            []
         ]
     },
     {
@@ -969,126 +872,30 @@
         "passthru": true,
         "multiple": false,
         "options": [
-            {
-                "label": "0:00",
-                "value": 0,
-                "type": "num"
-            },
-            {
-                "label": "1:00",
-                "value": 1,
-                "type": "num"
-            },
-            {
-                "label": "2:00",
-                "value": 2,
-                "type": "num"
-            },
-            {
-                "label": "3:00",
-                "value": 3,
-                "type": "num"
-            },
-            {
-                "label": "4:00",
-                "value": 4,
-                "type": "num"
-            },
-            {
-                "label": "5:00",
-                "value": 5,
-                "type": "num"
-            },
-            {
-                "label": "6:00",
-                "value": 6,
-                "type": "num"
-            },
-            {
-                "label": "7:00",
-                "value": 7,
-                "type": "num"
-            },
-            {
-                "label": "8:00",
-                "value": 8,
-                "type": "num"
-            },
-            {
-                "label": "9:00",
-                "value": 9,
-                "type": "num"
-            },
-            {
-                "label": "10:00",
-                "value": 10,
-                "type": "num"
-            },
-            {
-                "label": "11:00",
-                "value": 11,
-                "type": "num"
-            },
-            {
-                "label": "12:00",
-                "value": 12,
-                "type": "num"
-            },
-            {
-                "label": "13:00",
-                "value": 13,
-                "type": "num"
-            },
-            {
-                "label": "14:00",
-                "value": 14,
-                "type": "num"
-            },
-            {
-                "label": "15:00",
-                "value": 15,
-                "type": "num"
-            },
-            {
-                "label": "16:00",
-                "value": 16,
-                "type": "num"
-            },
-            {
-                "label": "17:00",
-                "value": 17,
-                "type": "num"
-            },
-            {
-                "label": "18:00",
-                "value": 18,
-                "type": "num"
-            },
-            {
-                "label": "19:00",
-                "value": 19,
-                "type": "num"
-            },
-            {
-                "label": "20:00",
-                "value": 20,
-                "type": "num"
-            },
-            {
-                "label": "21:00",
-                "value": 21,
-                "type": "num"
-            },
-            {
-                "label": "22:00",
-                "value": 22,
-                "type": "num"
-            },
-            {
-                "label": "23:00",
-                "value": 23,
-                "type": "num"
-            }
+            { "label": "0:00", "value": 0, "type": "num" },
+            { "label": "1:00", "value": 1, "type": "num" },
+            { "label": "2:00", "value": 2, "type": "num" },
+            { "label": "3:00", "value": 3, "type": "num" },
+            { "label": "4:00", "value": 4, "type": "num" },
+            { "label": "5:00", "value": 5, "type": "num" },
+            { "label": "6:00", "value": 6, "type": "num" },
+            { "label": "7:00", "value": 7, "type": "num" },
+            { "label": "8:00", "value": 8, "type": "num" },
+            { "label": "9:00", "value": 9, "type": "num" },
+            { "label": "10:00", "value": 10, "type": "num" },
+            { "label": "11:00", "value": 11, "type": "num" },
+            { "label": "12:00", "value": 12, "type": "num" },
+            { "label": "13:00", "value": 13, "type": "num" },
+            { "label": "14:00", "value": 14, "type": "num" },
+            { "label": "15:00", "value": 15, "type": "num" },
+            { "label": "16:00", "value": 16, "type": "num" },
+            { "label": "17:00", "value": 17, "type": "num" },
+            { "label": "18:00", "value": 18, "type": "num" },
+            { "label": "19:00", "value": 19, "type": "num" },
+            { "label": "20:00", "value": 20, "type": "num" },
+            { "label": "21:00", "value": 21, "type": "num" },
+            { "label": "22:00", "value": 22, "type": "num" },
+            { "label": "23:00", "value": 23, "type": "num" }
         ],
         "payload": "",
         "topic": "horaFin",
@@ -1097,9 +904,7 @@
         "x": 680,
         "y": 300,
         "wires": [
-            [
-                "bbf9e403ff180c41"
-            ]
+            []
         ]
     },
     {
@@ -1181,7 +986,7 @@
         "z": "8627a5733f13f310",
         "g": "3aa9676a5b88f14a",
         "name": "Decisión riego",
-        "func": "let deviceId = msg.payload.device_id || msg.topic.split('/')[1];\n\nlet config = global.get('config_maceteros') || {};\nlet cfg = config[deviceId];\n\nif (!cfg) {\n    node.warn('Sin configuración para ' + deviceId + ', no se evalúa riego');\n    return null;\n}\n\nlet humedad = msg.payload.humedad_suelo;\nlet hora = new Date().getHours();\n\nlet riegosConfirmados = global.get('ultimoRiegoConfirmado') || {};\nlet ultimoRiego = riegosConfirmados[deviceId] ? riegosConfirmados[deviceId].recibidoEn : 0;\nlet horasDesdeUltimoRiego = (Date.now() - ultimoRiego) / (1000 * 60 * 60);\n\nlet dentroHorario = hora >= cfg.horaInicio && hora < cfg.horaFin;\nlet necesitaRiego = humedad < cfg.humedadMin;\nlet haPasadoTiempo = horasDesdeUltimoRiego >= 24;\n\nnode.status({\n    fill: necesitaRiego ? \"blue\" : \"grey\",\n    shape: \"dot\",\n    text: deviceId + \" \" + humedad + \"% / \" + cfg.humedadMin + \"%\"\n});\n\nlet pendientes = global.get('riegoPendiente') || {};\nlet ordenPendiente = pendientes[deviceId] || 0;\nlet segundosDesdeOrden = (Date.now() - ordenPendiente) / 1000;\n\nif (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60) {\n    pendientes[deviceId] = Date.now();\n    global.set('riegoPendiente', pendientes);\n    node.warn('RIEGO AUTO ' + deviceId + ': ' + humedad + '% < ' + cfg.humedadMin + '%');\n    return {\n        payload: \"REGAR\",\n        topic: \"maceteros/\" + deviceId + \"/comando\"\n    };\n}\n\nreturn null;",
+        "func": "let deviceId = msg.payload.device_id || msg.topic.split('/')[1];\n\nlet config = global.get('config_maceteros') || {};\nlet cfg = config[deviceId];\n\nif (!cfg) {\n    node.warn('Sin configuración para ' + deviceId + ', no se evalúa riego');\n    return null;\n}\n\nlet humedad = msg.payload.humedad_suelo;\nlet hora = new Date().getHours();\n\nlet riegosConfirmados = global.get('ultimoRiegoConfirmado') || {};\nlet ultimoRiego = riegosConfirmados[deviceId] ? riegosConfirmados[deviceId].recibidoEn : 0;\nlet horasDesdeUltimoRiego = (Date.now() - ultimoRiego) / (1000 * 60 * 60);\n\nlet dentroHorario = hora >= cfg.horaInicio && hora < cfg.horaFin;\nlet necesitaRiego = humedad < cfg.humedadMin;\nlet haPasadoTiempo = horasDesdeUltimoRiego >= 24;\nlet sinLluviaPrevista = !cfg.lluviaPrevista;\n\nnode.status({\n    fill: necesitaRiego ? \"blue\" : \"grey\",\n    shape: \"dot\",\n    text: deviceId + \" \" + humedad + \"% / \" + cfg.humedadMin + \"%\"\n});\n\nlet pendientes = global.get('riegoPendiente') || {};\nlet ordenPendiente = pendientes[deviceId] || 0;\nlet segundosDesdeOrden = (Date.now() - ordenPendiente) / 1000;\n\nif (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60 && sinLluviaPrevista) {\n    pendientes[deviceId] = Date.now();\n    global.set('riegoPendiente', pendientes);\n    node.warn('RIEGO AUTO ' + deviceId + ': ' + humedad + '% < ' + cfg.humedadMin + '%');\n    return {\n        payload: \"REGAR\",\n        topic: \"maceteros/\" + deviceId + \"/comando\"\n    };\n}\n\nreturn null;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1287,7 +1092,103 @@
         ]
     },
     {
-        "id": "a2e6a92e134bb05a",
+        "id": "a34a2dfb080591b0",
+        "type": "inject",
+        "z": "8627a5733f13f310",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 1160,
+        "wires": [
+            [
+                "85eec371f179313f"
+            ]
+        ]
+    },
+    {
+        "id": "85eec371f179313f",
+        "type": "http request",
+        "z": "8627a5733f13f310",
+        "name": "",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://localhost:8000/api/internal/device-configs",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "other",
+                "keyValue": "X-Internal-Token",
+                "valueType": "other",
+                "valueValue": "<INTERNAL_API_TOKEN - rellenar a mano tras importar, no se versiona>"
+            }
+        ],
+        "x": 310,
+        "y": 1160,
+        "wires": [
+            [
+                "741be8e3f90426c7"
+            ]
+        ]
+    },
+    {
+        "id": "741be8e3f90426c7",
+        "type": "function",
+        "z": "8627a5733f13f310",
+        "name": "Aplicar config recibida",
+        "func": "if (msg.statusCode !== 200) {\n    node.warn('No se pudo actualizar config_maceteros: HTTP ' + msg.statusCode);\n    return null;\n}\nglobal.set('config_maceteros', msg.payload);\nnode.status({ fill: \"green\", shape: \"dot\", text: \"actualizado \" + new Date().toLocaleTimeString() });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 1160,
+        "wires": [
+            [
+                "0f8ff9b69ef737f4"
+            ]
+        ]
+    },
+    {
+        "id": "0f8ff9b69ef737f4",
+        "type": "debug",
+        "z": "8627a5733f13f310",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 1100,
+        "wires": []
+    },
+    {
+        "id": "d134dd966d3cc4e7",
         "type": "global-config",
         "env": [],
         "modules": {

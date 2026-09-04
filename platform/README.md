@@ -244,7 +244,7 @@ Con mTLS, la pestaña *Seguridad* del broker (usuario/contraseña) queda vacía:
 
 Menú → *Import* → pegar el contenido de [`nodered/flows.json`](nodered/flows.json).
 
-Tras importar hay que revisar: la configuración del broker MQTT (dirección, puerto TLS, ruta del certificado y credenciales), y el token, organización y bucket del nodo de InfluxDB.
+Tras importar hay que revisar: la configuración del broker MQTT (dirección, puerto TLS, ruta del certificado y credenciales), el token, organización y bucket del nodo de InfluxDB, y la cabecera `X-Internal-Token` del nodo `http request` que sondea `/api/internal/device-configs` (el valor real vive solo en `backend/.env` de la Pi — nunca se versiona, ver § "Catálogo de plantas y configuración de riego en Postgres").
 
 ---
 
