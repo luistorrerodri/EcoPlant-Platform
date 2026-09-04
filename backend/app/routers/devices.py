@@ -7,6 +7,7 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models.device import Device
 from app.models.location import Location
+from app.models.plant_type import PlantType
 from app.models.user import User
 from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
 from app.security import verify_claim_code
@@ -91,6 +92,17 @@ def update_device(
         if new_location is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ubicación no encontrada")
         device.location_id = new_location.id
+    if data.plant_type_id is not None:
+        plant_type = db.get(PlantType, data.plant_type_id)
+        if plant_type is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tipo de planta no encontrado")
+        device.plant_type_id = plant_type.id
+    if data.humedad_min is not None:
+        device.humedad_min = data.humedad_min
+    if data.hora_inicio is not None:
+        device.hora_inicio = data.hora_inicio
+    if data.hora_fin is not None:
+        device.hora_fin = data.hora_fin
     db.commit()
     db.refresh(device)
     return device

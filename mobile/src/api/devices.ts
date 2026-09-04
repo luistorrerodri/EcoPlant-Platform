@@ -27,6 +27,20 @@ export function renameDevice(deviceId: string, name: string): Promise<DeviceOut>
   });
 }
 
+export interface DeviceConfigUpdate {
+  plant_type_id?: string | null;
+  humedad_min?: number;
+  hora_inicio?: number;
+  hora_fin?: number;
+}
+
+export function updateDeviceConfig(deviceId: string, config: DeviceConfigUpdate): Promise<DeviceOut> {
+  return apiRequest<DeviceOut>(`/api/devices/${deviceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(config),
+  });
+}
+
 export function getReadings(deviceId: string, hours = 24): Promise<ReadingsOut> {
   return apiRequest<ReadingsOut>(`/api/devices/${deviceId}/readings?hours=${hours}`);
 }

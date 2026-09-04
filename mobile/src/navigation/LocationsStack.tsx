@@ -4,12 +4,14 @@ import LocationsScreen from "../screens/LocationsScreen";
 import LocationDetailScreen from "../screens/LocationDetailScreen";
 import ClaimDeviceScreen from "../screens/ClaimDeviceScreen";
 import DeviceDetailScreen from "../screens/DeviceDetailScreen";
+import DeviceConfigScreen from "../screens/DeviceConfigScreen";
 
 export type LocationsStackParamList = {
   Locations: undefined;
   LocationDetail: { locationId: string; locationName: string };
   ClaimDevice: { locationId: string };
   DeviceDetail: { deviceId: string };
+  DeviceConfig: { deviceId: string };
 };
 
 const Stack = createNativeStackNavigator<LocationsStackParamList>();
@@ -25,6 +27,7 @@ export default function LocationsStack() {
       />
       <Stack.Screen name="ClaimDevice" component={ClaimDeviceScreen} options={{ title: "Reclamar dispositivo" }} />
       <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} options={{ title: "Dispositivo" }} />
+      <Stack.Screen name="DeviceConfig" component={DeviceConfigScreen} options={{ title: "Configuración" }} />
     </Stack.Navigator>
   );
 }

@@ -26,8 +26,23 @@ export interface DeviceOut {
   device_id: string;
   name: string | null;
   location_id: string | null;
+  plant_type_id: string | null;
+  humedad_min: number;
+  hora_inicio: number;
+  hora_fin: number;
+  duracion_riego_ms: number;
   claimed_at: string | null;
   created_at: string;
+}
+
+export interface PlantTypeOut {
+  id: string;
+  slug: string;
+  name: string;
+  default_humedad_min: number;
+  default_hora_inicio: number;
+  default_hora_fin: number;
+  default_duracion_riego_ms: number;
 }
 
 export interface ReadingPoint {

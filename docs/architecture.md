@@ -144,7 +144,7 @@ Inicialmente `estado` (SECO / HUMEDO / OK…) se modeló como tag, lo que fragme
 
 ## Configuración persistente y editable
 
-Los parámetros de cada macetero (umbral de humedad, franja horaria de riego permitido, duración del pulso de riego) se guardan en el *global context* de Node-RED, indexados por `device_id`:
+Los parámetros de cada macetero (umbral de humedad, franja horaria de riego permitido, duración del pulso de riego, tipo de planta) viven en PostgreSQL, como columnas de `devices` — editables desde la app vía `PATCH /api/devices/{id}`. Node-RED sigue siendo quien decide si riega (`Decisión riego`, sección "Ciclo cerrado de riego"), pero ya no es la fuente de verdad de la configuración: cada 60 segundos sondea `GET /api/internal/device-configs` (backend, `127.0.0.1:8000`, nunca sale de loopback) y vuelca la respuesta en su *global context* (`config_maceteros`), con exactamente la misma forma que tenía antes de esta migración:
 
 ```javascript
 {
@@ -159,7 +159,11 @@ Los parámetros de cada macetero (umbral de humedad, franja horaria de riego per
 
 Esta estructura, indexada por dispositivo desde el primer momento aunque hoy solo exista un macetero, es la que permite que escalar a múltiples dispositivos sea añadir una entrada al objeto, no rediseñar el sistema.
 
-**Nota**: este umbral/franja horaria sigue viviendo aquí, en Node-RED, incluso después de añadir el backend multiusuario (siguiente sección). No se ha migrado a la base de datos relacional nueva en esta iteración — es un follow-up natural, no un olvido.
+**Por qué un sondeo HTTP y no un nodo de Postgres en Node-RED ni una API nueva expuesta por Node-RED**: mover la configuración a Postgres exigía elegir quién habla con quién. Añadir un nodo de Postgres a Node-RED habría metido credenciales de base de datos en un sitio que hoy no las tiene, y construir una API nueva *dentro* de Node-RED habría ido contra el reparto de responsabilidades ya establecido (Node-RED es lógica de decisión + dashboard; FastAPI es la única superficie de API). Con un sondeo HTTP del lado de Node-RED hacia un endpoint del backend, el nodo **"Decisión riego"** — la automatización real, controlando una bomba física — no se toca en absoluto: solo cambia de dónde se rellena la variable que ya leía.
+
+**`GET /api/internal/device-configs`** no usa el JWT de usuario del resto de la API — Node-RED no inicia sesión como nadie — sino un token estático compartido (cabecera `X-Internal-Token`, comparado con `secrets.compare_digest`), primer mecanismo de credencial de servicio a nivel HTTP en el backend. Es análogo a la identidad `backend-api` que ya existía en mTLS/MQTT (un servicio con su propia identidad, distinta de usuarios y dispositivos), solo que a nivel HTTP en vez de certificados. El riesgo real es bajo porque el tráfico nunca sale de `127.0.0.1` (Node-RED y el backend están en la misma Pi) — no pasa por Caddy, Cloudflare, ni el dominio público — pero el token evita que sea un endpoint abierto sin más dentro de esa confianza.
+
+Elegir un tipo de planta desde la app (catálogo en `plant_types`, ver más abajo) solo rellena estos mismos campos con valores por defecto — se pueden seguir editando a mano después, y el ciclo de riego nunca lee el catálogo directamente, solo los valores ya copiados a `devices`.
 
 ## Backend multiusuario
 
@@ -191,7 +195,7 @@ React Native + Expo (TypeScript), en `mobile/`. Consume la API del backend por H
 
 Con el dominio fijo y el backend multiusuario ya en producción, el siguiente bloque de trabajo apunta a que la app sea más útil planta a planta, no solo dispositivo a dispositivo. Son cuatro piezas relacionadas pero independientes; se documentan juntas aquí porque comparten el mismo modelo de datos de partida (`Device`/`Location`), pero se construyen y se despliegan en fases separadas.
 
-**1. Catálogo de tipos de planta con valores por defecto.** Al reclamar o editar un dispositivo, el usuario podrá elegir un tipo de planta (p. ej. "tomate", "suculenta", "helecho") de una lista con umbrales de cuidado predefinidos (humedad de suelo objetivo, frecuencia de riego orientativa) que se aplican como valores iniciales de la configuración ya existente (`Configuración persistente y editable`, más arriba) y que el usuario puede seguir ajustando a mano igual que hoy. Es la pieza base: no depende de meteorología ni de aprendizaje automático, y las otras tres la usan como punto de partida.
+**1. Catálogo de tipos de planta con valores por defecto — construido.** Al editar un dispositivo, el usuario elige un tipo de planta (tabla `plant_types`, doce entradas de partida: tomate, hierbas aromáticas, hoja verde, suculenta/cactus, helecho, monstera, potos, rosal, lavanda, orquídea, ficus, y un "personalizado" que replica los valores por defecto que ya tenía `macetero01`) que rellena los umbrales de cuidado (`Configuración persistente y editable`, más arriba) como punto de partida editable, no como un valor fijo. Los valores del catálogo son ilustrativos — específicos del calibrado de este sensor capacitivo, no un dato agronómico validado — pensados para refinarse con el uso real y, más adelante, con el punto 4. Esta pieza es también la que forzó a migrar la configuración de riego de Node-RED a Postgres (ver más arriba), porque sin eso no había dónde aplicar los valores por defecto ni forma de editarlos desde la app.
 
 **2. Interior / exterior como atributo del dispositivo.** Un campo más junto al tipo de planta. No cambia nada del ciclo de riego por sí solo — es la bandera que decide si se aplica el punto 3 (meteorología) a ese macetero en concreto. Las plantas de interior no la necesitan y no deberían pagar ese coste (una llamada a una API externa) en cada ciclo de decisión.
 

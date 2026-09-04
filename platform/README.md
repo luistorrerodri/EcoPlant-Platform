@@ -598,6 +598,68 @@ sudo journalctl -u ecoplant-backend -n 20 --no-pager                        # co
 
 Con `cloudflared-demo` levantado, `<url>/api/docs` debe cargar el Swagger desde fuera, y permitir registrarse, crear una ubicación, reclamar un dispositivo y regarlo — igual que en local.
 
+### Catálogo de plantas y configuración de riego en Postgres
+
+La configuración de riego (`humedadMin`, `horaInicio`, `horaFin`, `duracionRiegoMs`) que hasta ahora vivía solo en el contexto de Node-RED (§2, "Persistencia del contexto") pasa a ser columnas de `devices` en Postgres, editables desde la app. Node-RED deja de ser la fuente de verdad y pasa a sondear al backend cada 60s — ver `docs/architecture.md` § "Configuración persistente y editable" para el porqué del diseño. Este cambio se despliega en dos partes, **en este orden**, porque la segunda depende de que la primera ya esté sirviendo los valores correctos:
+
+**1. Backend (código versionado, despliegue normal):**
+
+```bash
+cd ~/EcoPlant-Platform
+git pull
+cd backend
+source .venv/bin/activate
+pip install -r requirements.txt   # sin cambios de dependencias en esta iteración, por si acaso
+```
+
+Añadir al `.env` (no está en `.env.example` por defecto — hay que generarlo, ver el comentario de esa sección en `backend/.env.example`):
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+# pega el resultado como INTERNAL_API_TOKEN=... en backend/.env
+```
+
+```bash
+alembic upgrade head
+sudo systemctl restart ecoplant-backend
+```
+
+**Verificar antes de tocar nada más** (el objetivo es que este paso sea un no-op de comportamiento — si `macetero01` no sale exactamente así, parar aquí):
+
+```bash
+sudo -u postgres psql -d ecoplant -c \
+  "SELECT device_id, humedad_min, hora_inicio, hora_fin, duracion_riego_ms FROM devices WHERE device_id = 'macetero01';"
+# debe dar exactamente: 36 | 8 | 21 | 9000
+
+curl -H "X-Internal-Token: <el token de arriba>" http://localhost:8000/api/internal/device-configs
+# {"macetero01": {"humedadMin": 36, "horaInicio": 8, "horaFin": 21, "duracionRiegoMs": 9000}}
+
+curl -H "X-Internal-Token: token-incorrecto" http://localhost:8000/api/internal/device-configs
+# 401
+```
+
+**2. Node-RED (manual, en el editor — `flows.json` del repo es solo referencia, no se despliega solo):**
+
+En la misma pestaña de flujo, añadir sin tocar el nodo **"Decisión riego"**:
+
+- `inject` → repetir cada 60s, y marcar "Inject once after 0.1 seconds" para que cargue en cuanto se hace Deploy.
+- `http request` → método `GET`, URL `http://localhost:8000/api/internal/device-configs`, cabecera `X-Internal-Token: <mismo token del .env>`, "Return" = objeto JSON parseado.
+- `function`, nómbralo **"Aplicar config recibida"**:
+  ```javascript
+  if (msg.statusCode !== 200) {
+      node.warn('No se pudo actualizar config_maceteros: HTTP ' + msg.statusCode);
+      return null;
+  }
+  global.set('config_maceteros', msg.payload);
+  node.status({fill: "green", shape: "dot", text: "actualizado " + new Date().toLocaleTimeString()});
+  return msg;
+  ```
+  Cablear: `inject → http request → Aplicar config recibida`. Un `debug` a la salida ayuda a verificar en el primer despliegue (se puede desactivar después).
+
+Después, para que el dashboard no pelee con el sondeo escribiendo `config_maceteros` a la vez: desconecta (no borres) el cable del slider de humedad hacia el nodo "Guardar Umbral", y el de los desplegables de horario hacia "Guardar horario" — los nodos "Leer umbral actual"/"Leer horario actual" se quedan como están, así el dashboard sigue mostrando el valor vigente, solo que de solo lectura. Deshabilita también (clic derecho → Disable) el nodo "Init config maceteros": con el sondeo cargando en cada Deploy, ese bootstrap fijo para `macetero01` ya no hace falta, pero se deja ahí, inerte, como red de seguridad reactivable a mano si el backend no responde en el arranque.
+
+Deploy, y confirmar en el panel de debug que "Aplicar config recibida" da exactamente los mismos valores que el `curl` de arriba. Dejar correr al menos un ciclo completo sin tocar nada más y confirmar que no se dispara ningún riego inesperado — el sistema debe comportarse igual que antes de este cambio.
+
 ---
 
 ## Verificación del stack completo

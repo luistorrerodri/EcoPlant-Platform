@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,22 @@ class Device(Base):
         UUID(as_uuid=True), ForeignKey("locations.id", ondelete="RESTRICT")
     )
 
+    # Tipo de planta asignado (opcional): solo rellena valores por defecto
+    # al elegirlo desde la app, no se lee en el ciclo de riego. Si se borra
+    # el tipo, el dispositivo conserva sus umbrales tal cual estan.
+    plant_type_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("plant_types.id", ondelete="SET NULL")
+    )
+
+    # Configuracion de riego, migrada desde el contexto global de Node-RED
+    # (era la unica fuente de verdad hasta ahora). Los server_default de
+    # aqui son EXACTAMENTE los que macetero01 tiene hoy en produccion, para
+    # que anadir estas columnas no cambie ni un bit del riego automatico.
+    humedad_min: Mapped[int] = mapped_column(Integer, server_default="36")
+    hora_inicio: Mapped[int] = mapped_column(Integer, server_default="8")
+    hora_fin: Mapped[int] = mapped_column(Integer, server_default="21")
+    duracion_riego_ms: Mapped[int] = mapped_column(Integer, server_default="9000")
+
     # Hash del codigo de reclamacion (bcrypt, igual que una contraseña).
     # Se pone a NULL en cuanto se reclama - de un solo uso. Para volver
     # a reclamar un dispositivo desenganchado hace falta que un admin
@@ -29,3 +45,4 @@ class Device(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     location: Mapped["Location | None"] = relationship(back_populates="devices")
+    plant_type: Mapped["PlantType | None"] = relationship(back_populates="devices")

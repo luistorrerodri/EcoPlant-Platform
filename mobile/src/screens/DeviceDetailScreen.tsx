@@ -18,7 +18,7 @@ const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
   ambiente: ["temp_aire", "presion"],
 };
 
-export default function DeviceDetailScreen({ route }: Props) {
+export default function DeviceDetailScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
   const [selectedCategory, setSelectedCategory] = useState<Category>("suelo");
 
@@ -41,6 +41,13 @@ export default function DeviceDetailScreen({ route }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.deviceId}>{deviceId}</Text>
       <Text style={styles.estado}>Estado: {readingsQuery.data?.latest_estado ?? "—"}</Text>
+
+      <Pressable
+        style={styles.configButton}
+        onPress={() => navigation.navigate("DeviceConfig", { deviceId })}
+      >
+        <Text style={styles.configButtonText}>⚙️ Configuración</Text>
+      </Pressable>
 
       <Pressable
         style={[styles.waterButton, waterMutation.isPending && styles.buttonDisabled]}
@@ -93,6 +100,15 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   waterButtonText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  configButton: {
+    borderWidth: 1,
+    borderColor: "#2e7d32",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  configButtonText: { color: "#2e7d32", fontSize: 15, fontWeight: "600" },
   fieldSelector: { flexDirection: "row", gap: 8, marginBottom: 8 },
   fieldButton: {
     flex: 1,

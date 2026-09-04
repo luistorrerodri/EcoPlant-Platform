@@ -24,6 +24,7 @@ Rellena `.env`:
 | `DATABASE_URL` | Cadena de conexión a PostgreSQL (`postgresql+psycopg2://usuario:contraseña@host:5432/bd`) |
 | `JWT_SECRET_KEY` | Clave para firmar los tokens de acceso. Genera una con `python3 -c "import secrets; print(secrets.token_urlsafe(64))"` — nunca reutilizar la de ejemplo |
 | `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS` | Parámetros del esquema de tokens (ver "Autenticación con tokens revocables" en `docs/architecture.md`) |
+| `INTERNAL_API_TOKEN` | Token compartido para `/api/internal/*` (lo usa Node-RED, no un usuario). Genera uno con `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `MQTT_HOST`, `MQTT_PORT` | Dirección del broker Mosquitto |
 | `MQTT_CA_CERT_PATH` | CA que firmó el certificado del broker (la misma que usa Node-RED) |
 | `MQTT_CLIENT_CERT_PATH`, `MQTT_CLIENT_KEY_PATH` | Certificado de cliente propio del backend (CN `backend-api`), generado siguiendo el mismo procedimiento que `nodered`/`macetero01` |
@@ -69,9 +70,9 @@ backend/
 │   ├── database.py     # conexión SQLAlchemy
 │   ├── security.py     # hash de contraseñas/códigos, JWT
 │   ├── deps.py          # dependencias de autenticación (get_current_user, get_current_admin)
-│   ├── models/          # tablas SQLAlchemy (User, Location, Device, RefreshToken)
+│   ├── models/          # tablas SQLAlchemy (User, Location, Device, PlantType, RefreshToken)
 │   ├── schemas/         # modelos Pydantic de entrada/salida
-│   ├── routers/         # endpoints (auth, locations, devices, admin)
+│   ├── routers/         # endpoints (auth, locations, devices, plant_types, internal, admin)
 │   └── services/        # clientes de MQTT e InfluxDB
 ├── alembic/              # migraciones de base de datos
 └── scripts/              # utilidades de línea de comandos

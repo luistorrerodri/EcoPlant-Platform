@@ -23,12 +23,21 @@ class DeviceClaimRequest(BaseModel):
 class DeviceUpdate(BaseModel):
     name: str | None = None
     location_id: uuid.UUID | None = None
+    plant_type_id: uuid.UUID | None = None
+    humedad_min: int | None = Field(default=None, ge=0, le=100)
+    hora_inicio: int | None = Field(default=None, ge=0, le=23)
+    hora_fin: int | None = Field(default=None, ge=0, le=23)
 
 
 class DeviceOut(BaseModel):
     device_id: str
     name: str | None
     location_id: uuid.UUID | None
+    plant_type_id: uuid.UUID | None
+    humedad_min: int
+    hora_inicio: int
+    hora_fin: int
+    duracion_riego_ms: int
     claimed_at: datetime | None
     created_at: datetime
 

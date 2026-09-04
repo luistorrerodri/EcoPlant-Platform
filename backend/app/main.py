@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.routers import admin, auth, devices, locations
+from app.routers import admin, auth, devices, internal, locations, plant_types
 from app.services import mqtt_client
 
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +27,8 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(locations.router)
 app.include_router(devices.router)
+app.include_router(plant_types.router)
+app.include_router(internal.router)
 app.include_router(admin.router)
 
 

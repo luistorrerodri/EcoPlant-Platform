@@ -53,7 +53,7 @@ mobile/
 │   ├── config.ts              # URL de API por defecto, claves de SecureStore
 │   ├── notifications.ts       # permiso, token de push, registro en el backend
 │   ├── types/api.ts           # tipos TS que reflejan los schemas Pydantic del backend
-│   ├── api/                   # un archivo por recurso: auth, locations, devices, notifications
+│   ├── api/                   # un archivo por recurso: auth, locations, devices, plantTypes, notifications
 │   │   └── client.ts           # fetch wrapper con reintento automático tras 401 (refresh token)
 │   ├── auth/
 │   │   ├── secureStorage.ts    # tokens y URL del servidor en Expo SecureStore

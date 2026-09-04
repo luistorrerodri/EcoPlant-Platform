@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 30
 
+    # Token compartido para /api/internal/* (lo llama Node-RED, no un
+    # usuario con sesión). Trafico solo por loopback, pero igualmente
+    # protegido con este secreto - ver app/deps.py:verify_internal_token.
+    internal_api_token: str
+
     mqtt_host: str
     mqtt_port: int = 8883
     mqtt_ca_cert_path: str
