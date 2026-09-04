@@ -155,6 +155,21 @@ mosquitto_sub -h 192.168.1.140 -p 8883 --cafile ~/certs/ca.crt \
 
 > Al conectar hay que usar la **misma dirección** que figura en el certificado del servidor. Con `localhost` la validación del nombre falla aunque el broker responda.
 
+### Arranque tras un reinicio
+
+El `.service` de fábrica de `apt` usa `network.target` (arranca en cuanto existe el subsistema de red, no cuando ya está configurada de verdad) en vez de `network-online.target` — la misma imprecisión que causó el fallo real de Caddy tras un apagón (troubleshooting #19). Aquí el riesgo es bajo porque el `listener` no fija una IP concreta (escucha en todas las interfaces), pero se corrige igualmente por consistencia con el resto de la pila, sin coste:
+
+```bash
+sudo mkdir -p /etc/systemd/system/mosquitto.service.d
+sudo tee /etc/systemd/system/mosquitto.service.d/override.conf > /dev/null << 'EOF'
+[Unit]
+After=network-online.target
+Wants=network-online.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart mosquitto
+```
+
 ---
 
 ## 2. Node-RED
@@ -245,6 +260,21 @@ Con mTLS, la pestaña *Seguridad* del broker (usuario/contraseña) queda vacía:
 Menú → *Import* → pegar el contenido de [`nodered/flows.json`](nodered/flows.json).
 
 Tras importar hay que revisar: la configuración del broker MQTT (dirección, puerto TLS, ruta del certificado y credenciales), el token, organización y bucket del nodo de InfluxDB, y la cabecera `X-Internal-Token` del nodo `http request` que sondea `/api/internal/device-configs` (el valor real vive solo en `backend/.env` de la Pi — nunca se versiona, ver § "Catálogo de plantas y configuración de riego en Postgres").
+
+### Arranque tras un reinicio
+
+El `.service` de `nodered` (instalado por su script oficial) no tenía ninguna dependencia explícita de red — ni siquiera `network.target`. El riesgo real es bajo porque `uiHost` no está fijado a una IP concreta (escucha en todas las interfaces), pero se corrige por consistencia con el resto de la pila:
+
+```bash
+sudo mkdir -p /etc/systemd/system/nodered.service.d
+sudo tee /etc/systemd/system/nodered.service.d/override.conf > /dev/null << 'EOF'
+[Unit]
+After=network-online.target
+Wants=network-online.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart nodered
+```
 
 ---
 

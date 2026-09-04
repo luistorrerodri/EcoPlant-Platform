@@ -340,6 +340,8 @@ sudo systemctl restart caddy
 
 **Aprendizaje**: este fallo llevaba **12 horas activo sin que nada avisara** — Caddy no manda ninguna notificación al morir, `systemctl status` solo lo cuenta si alguien pregunta. Los servicios propios de este proyecto (`ecoplant-backend`, `cloudflared-demo`) ya se crearon desde el principio con `After=network-online.target` y `Restart=on-failure` — este fallo apareció justo en el único servicio de la pila que se instaló por `apt` con su configuración de fábrica sin revisar esa parte. Vale la pena repasar el resto de servicios del sistema (Mosquitto, Node-RED, InfluxDB, Grafana) para confirmar que ninguno tiene el mismo punto ciego.
 
+**Seguimiento (2026-09-04)**: revisados los cuatro. InfluxDB y Grafana ya traían `network-online.target` de fábrica, sin tocar. Mosquitto tenía `network.target` y Node-RED no tenía ninguna dependencia de red — corregidos los dos con el mismo *override* que aquí (ver `platform/README.md`, secciones 1 y 2, "Arranque tras un reinicio"). En ninguno de los dos el riesgo real era tan alto como el de Caddy: ambos escuchan en todas las interfaces (`0.0.0.0`), no en la IP fija de la LAN que causó el fallo original — pero se corrigió igualmente, sin coste, por consistencia.
+
 ## 20. `alembic upgrade head` falla con "Multiple head revisions": una migración se generó y aplicó en la Pi pero nunca se comiteó
 
 **Síntoma**: al desplegar una migración nueva (`cd15063a2c75`, catálogo de tipos de planta), `alembic upgrade head` falló con `Multiple head revisions are present for given argument 'head'`.
