@@ -1,7 +1,7 @@
 """catalogo de tipos de planta y config de riego en devices
 
 Revision ID: cd15063a2c75
-Revises: 32dd032060ba
+Revises: 8afb2f1757a7
 Create Date: 2026-09-04 14:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'cd15063a2c75'
-down_revision: Union[str, None] = '32dd032060ba'
+down_revision: Union[str, None] = '8afb2f1757a7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
