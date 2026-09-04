@@ -18,13 +18,21 @@ const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
   ambiente: ["temp_aire", "presion"],
 };
 
+const TIME_RANGES: { label: string; hours: number }[] = [
+  { label: "6h", hours: 6 },
+  { label: "24h", hours: 24 },
+  { label: "2d", hours: 48 },
+  { label: "7d", hours: 168 },
+];
+
 export default function DeviceDetailScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
   const [selectedCategory, setSelectedCategory] = useState<Category>("suelo");
+  const [selectedHours, setSelectedHours] = useState(24);
 
   const readingsQuery = useQuery({
-    queryKey: ["readings", deviceId],
-    queryFn: () => devicesApi.getReadings(deviceId, 24),
+    queryKey: ["readings", deviceId, selectedHours],
+    queryFn: () => devicesApi.getReadings(deviceId, selectedHours),
     refetchInterval: 30_000,
   });
 
@@ -60,6 +68,20 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
           <Text style={styles.waterButtonText}>💧 Regar ahora</Text>
         )}
       </Pressable>
+
+      <View style={styles.rangeSelector}>
+        {TIME_RANGES.map((range) => (
+          <Pressable
+            key={range.hours}
+            style={[styles.rangeButton, selectedHours === range.hours && styles.rangeButtonActive]}
+            onPress={() => setSelectedHours(range.hours)}
+          >
+            <Text style={[styles.rangeButtonText, selectedHours === range.hours && styles.rangeButtonTextActive]}>
+              {range.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       <View style={styles.fieldSelector}>
         {(["suelo", "ambiente"] as Category[]).map((category) => (
@@ -109,6 +131,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   configButtonText: { color: "#2e7d32", fontSize: 15, fontWeight: "600" },
+  rangeSelector: { flexDirection: "row", gap: 6, marginBottom: 12 },
+  rangeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: "#f0f0f0",
+  },
+  rangeButtonActive: { backgroundColor: "#2e7d32" },
+  rangeButtonText: { color: "#555", fontWeight: "600", fontSize: 13 },
+  rangeButtonTextActive: { color: "#fff" },
   fieldSelector: { flexDirection: "row", gap: 8, marginBottom: 8 },
   fieldButton: {
     flex: 1,

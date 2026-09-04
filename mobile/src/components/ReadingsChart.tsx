@@ -31,8 +31,12 @@ function downsample(points: ReadingPoint[], max: number): ReadingPoint[] {
   return result;
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function formatTime(iso: string, showDate: boolean): string {
+  const d = new Date(iso);
+  if (showDate) {
+    return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString([], { hour: "2-digit" });
+  }
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function ReadingsChart({
@@ -65,6 +69,10 @@ export default function ReadingsChart({
 
   const markStep = Math.max(1, Math.floor((fieldPoints.length - 1) / (TIME_MARKS - 1)));
   const timeMarks = fieldPoints.filter((_, i) => i % markStep === 0 || i === fieldPoints.length - 1).slice(0, TIME_MARKS);
+  const spanHours =
+    (new Date(fieldPoints[fieldPoints.length - 1].time).getTime() - new Date(fieldPoints[0].time).getTime()) /
+    (1000 * 60 * 60);
+  const showDateInLabels = spanHours > 36;
 
   // El eje Y empieza en 0 por defecto, lo cual aplasta campos como
   // presion (valores siempre cerca de 1013) contra el borde superior.
@@ -110,7 +118,7 @@ export default function ReadingsChart({
           <View style={styles.timeRow}>
             {timeMarks.map((p, i) => (
               <Text key={i} style={styles.timeText}>
-                {formatTime(p.time)}
+                {formatTime(p.time, showDateInLabels)}
               </Text>
             ))}
           </View>
