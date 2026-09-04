@@ -11,11 +11,16 @@ import type { ReadingPoint } from "../types/api";
 
 type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceDetail">;
 
-const FIELDS: ReadingPoint["field"][] = ["humedad_suelo", "temp_aire", "presion"];
+type Category = "suelo" | "ambiente";
+
+const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
+  suelo: ["humedad_suelo"],
+  ambiente: ["temp_aire", "presion"],
+};
 
 export default function DeviceDetailScreen({ route }: Props) {
   const { deviceId } = route.params;
-  const [selectedField, setSelectedField] = useState<ReadingPoint["field"]>("humedad_suelo");
+  const [selectedCategory, setSelectedCategory] = useState<Category>("suelo");
 
   const readingsQuery = useQuery({
     queryKey: ["readings", deviceId],
@@ -50,14 +55,14 @@ export default function DeviceDetailScreen({ route }: Props) {
       </Pressable>
 
       <View style={styles.fieldSelector}>
-        {FIELDS.map((field) => (
+        {(["suelo", "ambiente"] as Category[]).map((category) => (
           <Pressable
-            key={field}
-            style={[styles.fieldButton, field === selectedField && styles.fieldButtonActive]}
-            onPress={() => setSelectedField(field)}
+            key={category}
+            style={[styles.fieldButton, category === selectedCategory && styles.fieldButtonActive]}
+            onPress={() => setSelectedCategory(category)}
           >
-            <Text style={[styles.fieldButtonText, field === selectedField && styles.fieldButtonTextActive]}>
-              {field === "humedad_suelo" ? "Suelo" : field === "temp_aire" ? "Temp" : "Presión"}
+            <Text style={[styles.fieldButtonText, category === selectedCategory && styles.fieldButtonTextActive]}>
+              {category === "suelo" ? "🌱 Suelo" : "🌤️ Ambiente"}
             </Text>
           </Pressable>
         ))}
@@ -66,7 +71,9 @@ export default function DeviceDetailScreen({ route }: Props) {
       {readingsQuery.isLoading ? (
         <ActivityIndicator style={styles.loading} />
       ) : (
-        <ReadingsChart points={readingsQuery.data?.points ?? []} field={selectedField} />
+        FIELDS_BY_CATEGORY[selectedCategory].map((field) => (
+          <ReadingsChart key={field} points={readingsQuery.data?.points ?? []} field={field} />
+        ))
       )}
     </ScrollView>
   );

@@ -36,7 +36,7 @@ export default function ReadingsChart({
       <Text style={styles.title}>{FIELD_LABELS[field]}</Text>
       <LineChart
         data={{ labels, datasets: [{ data: fieldPoints.map((p) => p.value) }] }}
-        width={Dimensions.get("window").width - 32}
+        width={Dimensions.get("window").width - 40}
         height={200}
         yAxisSuffix=""
         chartConfig={{
