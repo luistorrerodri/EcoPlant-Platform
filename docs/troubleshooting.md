@@ -310,3 +310,32 @@ Así Caddy escucha solo en loopback (nada expuesto a la red local ni a internet 
 **Solución**: `git config --global user.name "..."` y `user.email "..."` para lo primero; para lo segundo, editar el token en GitHub (Settings → Developer settings → Fine-grained tokens) y subir el permiso de **Contents** a **Read and write**.
 
 **Aprendizaje**: dar el mínimo permiso necesario en cada momento (aquí, solo lectura para clonar) es la práctica correcta, pero implica recordar ampliarlo explícitamente cuando el uso de esa credencial cambia — no es un fallo de configuración, es el sistema de permisos haciendo justo lo que se le pidió.
+
+---
+
+## 19. Caddy no arranca tras un reinicio de la Pi: condición de carrera con la red
+
+**Síntoma**: con el dominio fijo (`api.ecoplantplatform.com`) ya configurado sobre el túnel con nombre de Cloudflare, las peticiones daban `502` de forma persistente. `curl` a la API funcionaba perfectamente por LAN un rato antes, así que no era un problema del túnel ni de DNS.
+
+**Diagnóstico**: `sudo systemctl status caddy` mostraba el servicio como `failed`, caído desde hacía **12 horas** — coincidiendo casi al segundo con la hora en la que `cloudflared` se había conectado por última vez, señal clara de que la Pi se había reiniciado (corte de luz o similar) sin que nadie se diera cuenta. El motivo exacto, en el log: `listen tcp 192.168.1.140:8080: bind: cannot assign requested address`. Caddy había arrancado **antes de que la interfaz de red tuviera ya asignada la IP** `192.168.1.140` — el `Caddyfile` pide escuchar en esa IP explícita (para la LAN, además de loopback), y en el instante exacto del arranque esa dirección todavía no existía en el sistema. Caddy no reintenta ni se recupera solo de un fallo así: el proceso simplemente terminó con error y se quedó muerto, sin que el servicio volviera a intentarlo.
+
+**Solución**: un *override* de systemd para el servicio de Caddy (paquete del sistema, no se edita el `.service` original directamente):
+
+```bash
+sudo mkdir -p /etc/systemd/system/caddy.service.d
+sudo tee /etc/systemd/system/caddy.service.d/override.conf > /dev/null << 'EOF'
+[Unit]
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=on-failure
+RestartSec=5
+EOF
+sudo systemctl daemon-reload
+sudo systemctl restart caddy
+```
+
+`network-online.target` (a diferencia del `network.target` que trae el `.service` de fábrica) obliga a esperar a que la red esté *de verdad* operativa, no solo a que el subsistema de red exista. `Restart=on-failure` es la red de seguridad para cualquier otro fallo transitorio parecido: que el servicio se recupere solo, en vez de quedarse caído en silencio hasta que alguien lo note.
+
+**Aprendizaje**: este fallo llevaba **12 horas activo sin que nada avisara** — Caddy no manda ninguna notificación al morir, `systemctl status` solo lo cuenta si alguien pregunta. Los servicios propios de este proyecto (`ecoplant-backend`, `cloudflared-demo`) ya se crearon desde el principio con `After=network-online.target` y `Restart=on-failure` — este fallo apareció justo en el único servicio de la pila que se instaló por `apt` con su configuración de fábrica sin revisar esa parte. Vale la pena repasar el resto de servicios del sistema (Mosquitto, Node-RED, InfluxDB, Grafana) para confirmar que ninguno tiene el mismo punto ciego.

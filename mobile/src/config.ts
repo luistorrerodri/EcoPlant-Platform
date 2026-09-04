@@ -1,9 +1,9 @@
 // Sin URL fija en duro: se guarda en SecureStore y se puede cambiar
-// desde ProfileScreen sin recompilar. Por defecto apunta a la Pi por
-// la LAN de casa; cuando exista el dominio de is-a.dev + tunel con
-// nombre, ese sera el nuevo valor por defecto (un solo sitio a
-// cambiar, no hay que tocar el resto de la app).
-export const DEFAULT_API_BASE_URL = "http://192.168.1.140:8080";
+// desde ProfileScreen sin recompilar. Por defecto apunta al dominio
+// fijo (tunel con nombre de Cloudflare + ecoplantplatform.com) para
+// que la app funcione igual en casa o fuera sin tocar nada; la IP de
+// la LAN sigue disponible como alternativa manual en Perfil.
+export const DEFAULT_API_BASE_URL = "https://api.ecoplantplatform.com";
 
 export const SECURE_STORE_KEYS = {
   apiBaseUrl: "ecoplant_api_base_url",

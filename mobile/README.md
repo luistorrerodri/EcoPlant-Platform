@@ -6,7 +6,7 @@ App React Native (Expo, TypeScript) para EcoPlant Platform: login/registro, ubic
 
 - Node.js 20+
 - La app **Expo Go** ya no sirve para probar esto de verdad: las notificaciones push necesitan una build de desarrollo propia (ver más abajo)
-- Backend en marcha y alcanzable desde el móvil — por LAN (`http://192.168.1.140:8080`, con Caddy escuchando también en la IP de la red local) o por el túnel de Cloudflare
+- Backend en marcha y alcanzable desde el móvil — por el dominio fijo (`https://api.ecoplantplatform.com`, funciona en cualquier red con internet) o por LAN (`http://192.168.1.140:8080`)
 
 ## Arrancar en desarrollo
 
@@ -40,7 +40,7 @@ Si se regenera el proyecto de Firebase o se pierde la clave, hay que repetir el 
 
 ## URL del servidor
 
-No está fija en el código: se guarda en `SecureStore` y se edita desde la pestaña **Perfil** de la propia app (por defecto, la IP de la Pi en la LAN — `src/config.ts`). Así se puede cambiar entre la red local y una URL de Cloudflare Tunnel sin recompilar.
+No está fija en el código: se guarda en `SecureStore` y se edita desde la pestaña **Perfil** de la propia app (`src/config.ts`). Por defecto apunta al dominio fijo (`https://api.ecoplantplatform.com`, un túnel de Cloudflare con nombre — funciona igual en casa o fuera), pero se puede cambiar a la IP de la LAN (`http://192.168.1.140:8080`) si se prefiere ese camino durante el desarrollo.
 
 ## Estructura del proyecto
 

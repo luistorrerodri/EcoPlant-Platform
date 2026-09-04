@@ -464,7 +464,23 @@ La segunda línea saca la URL pública (algo como `https://palabras-al-azar.tryc
 sudo systemctl stop cloudflared-demo
 ```
 
-**Limitación conocida**: sin cuenta de Cloudflare ni dominio propio, la URL de cada demo es distinta e impredecible — vale para "mira, te enseño el proyecto ahora mismo", no para dejar un enlace fijo en un CV o portfolio. Si en el futuro se quiere una URL permanente, el camino es un *named tunnel* apuntando a un dominio (de pago, o uno gratuito compatible como `is-a.dev`) dado de alta como zona en Cloudflare.
+**Limitación conocida**: sin cuenta de Cloudflare ni dominio propio, la URL de cada demo es distinta e impredecible — vale para "mira, te enseño el proyecto ahora mismo", no para dejar un enlace fijo en un CV o portfolio. Para eso está el túnel con nombre de la siguiente sección.
+
+### Túnel con nombre + dominio fijo
+
+Para la app móvil (necesita una URL que no cambie nunca, tanto en casa como fuera) se añadió un segundo túnel, permanente: dominio propio (`ecoplantplatform.com`, comprado en **Cloudflare Registrar** — al estar en la misma cuenta que el túnel, el DNS se gestiona solo, sin los rodeos que hicieron falta al intentarlo primero con un dominio gratuito de terceros) + un túnel de Cloudflare **con nombre** (`ecoplant-pi`, creado desde el panel de **Zero Trust → Networks → Tunnels & Mesh**, no con `cloudflared tunnel login` — ese comando exige tener ya un dominio dado de alta y falla si la cuenta no tiene ninguno).
+
+Instalación del conector en la Pi (token generado al crear el túnel en el panel):
+
+```bash
+sudo cloudflared service install <token>
+```
+
+Esto instala `cloudflared` como servicio systemd propio (`cloudflared.service`, distinto de `cloudflared-demo`), habilitado al arrancar — a diferencia del Quick Tunnel, este si tiene sentido que esté siempre activo, porque ahora hay una app de uso real detrás, no solo demos puntuales.
+
+El enrutado (qué hostname va a qué servicio local) se configura en **Zero Trust → Networks → Tunnels & Mesh → `ecoplant-pi` → Published application routes**: `api.ecoplantplatform.com` → `http://127.0.0.1:8080` (Caddy). Se usa `127.0.0.1` explícito y no `localhost` — con `localhost`, `cloudflared` puede resolver a `::1` (IPv6) en vez de a la IP donde escucha Caddy, dando `502` de forma intermitente y confusa. Se reservó `api.` para el backend a propósito, dejando la raíz del dominio y `www` libres para una futura landing page del proyecto.
+
+**Bug real encontrado al verificar esto**: tras un reinicio de la Pi, Caddy no volvía a arrancar (condición de carrera con la red al asignar la IP de la LAN) — ver [`../docs/troubleshooting.md`](../docs/troubleshooting.md#19-caddy-no-arranca-tras-un-reinicio-de-la-pi-condición-de-carrera-con-la-red) para el diagnóstico completo y el arreglo (`override.conf` de systemd con `network-online.target` + `Restart=on-failure`).
 
 ---
 
