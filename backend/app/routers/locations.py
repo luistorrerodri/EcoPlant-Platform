@@ -30,7 +30,13 @@ def _get_owned_location_or_404(location_id: uuid.UUID, user: User, db: Session) 
 def create_location(
     data: LocationCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> Location:
-    location = Location(owner_id=user.id, name=data.name, description=data.description)
+    location = Location(
+        owner_id=user.id,
+        name=data.name,
+        description=data.description,
+        latitude=data.latitude,
+        longitude=data.longitude,
+    )
     db.add(location)
     try:
         db.commit()
@@ -67,6 +73,10 @@ def update_location(
         location.name = data.name
     if data.description is not None:
         location.description = data.description
+    if data.latitude is not None:
+        location.latitude = data.latitude
+    if data.longitude is not None:
+        location.longitude = data.longitude
     try:
         db.commit()
     except IntegrityError:

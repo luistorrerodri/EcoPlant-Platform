@@ -671,6 +671,45 @@ sudo systemctl restart ecoplant-backend
 curl -s http://localhost:8000/api/health
 ```
 
+### Meteorología para riego exterior
+
+Roadmap punto 3 (`docs/architecture.md`). Añade `latitude`/`longitude` a `locations` y un `lluviaPrevista` calculado (Open-Meteo) al mismo objeto que ya sirve `GET /api/internal/device-configs` — sin token nuevo, sin cambios en el poller de Node-RED.
+
+**1. Backend**, igual que los pasos anteriores:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && alembic upgrade head
+sudo systemctl restart ecoplant-backend
+curl -s http://localhost:8000/api/health
+```
+
+**Verificar antes de tocar Node-RED**: `macetero01` no tiene `environment` fijado, así que debe seguir dando `lluviaPrevista: false` — es el chequeo de no-regresión:
+
+```bash
+curl -s -H "X-Internal-Token: <token>" http://localhost:8000/api/internal/device-configs
+```
+
+Para probar el cálculo real: `PATCH /api/locations/{id}` con unas coordenadas bajo lluvia de verdad ahora mismo (comprobable en cualquier web del tiempo) y `PATCH /api/devices/{id}` con `{"environment": "exterior"}` en un dispositivo de prueba apuntando a esa ubicación — el siguiente `curl` de arriba debe dar `lluviaPrevista: true`. Deshacer ambos cambios de prueba después.
+
+**2. Node-RED (manual, en el editor)** — dos líneas dentro de **"Decisión riego"**, sin tocar nada más de la función. Justo después de `let haPasadoTiempo = ...`:
+
+```javascript
+let sinLluviaPrevista = !cfg.lluviaPrevista;
+```
+
+Y en el `if` final, añadir la condición al final:
+
+```javascript
+if (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60 && sinLluviaPrevista) {
+```
+
+`!cfg.lluviaPrevista` (no `=== false`) es a propósito: si la clave todavía no ha llegado (config vieja, redeploy en curso), se trata como "sin lluvia prevista" — nunca bloquea el riego por un dato que falta.
+
+**Probar la rama de "no regar por lluvia" sin esperar a que llueva**: un nodo `inject` desechable que fuerce `global.get('config_maceteros').macetero01.lluviaPrevista = true` en memoria (no toca Postgres, se autocorrige solo en el siguiente sondeo de 60s), seguido de una lectura de humedad simulada por debajo del umbral. Confirmar en el debug que "Decisión riego" no dispara `REGAR`. Borrar el nodo de prueba (no solo desactivarlo) y hacer Deploy otra vez.
+
+**3. Actualizar el snapshot de `flows.json`**: el archivo del repo lleva desde el roadmap punto 1 sin reflejar los cambios hechos a mano en el editor (poller, sliders desconectados, init deshabilitado, y ahora esto). En vez de parchear el archivo a mano, hacer un *Export* completo desde el propio Node-RED (menú → Export → todo el flujo → copiar) y sobrescribir `platform/nodered/flows.json` entero, para que vuelva a ser un reflejo fiel del estado real.
+
 ---
 
 ## Verificación del stack completo

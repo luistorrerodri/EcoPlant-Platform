@@ -9,3 +9,4 @@ class DeviceConfigOut(BaseModel):
     horaInicio: int
     horaFin: int
     duracionRiegoMs: int
+    lluviaPrevista: bool

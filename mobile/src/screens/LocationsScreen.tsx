@@ -25,6 +25,8 @@ export default function LocationsScreen({ navigation }: Props) {
   const [isModalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -32,12 +34,20 @@ export default function LocationsScreen({ navigation }: Props) {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => locationsApi.createLocation(name.trim(), description.trim() || undefined),
+    mutationFn: () =>
+      locationsApi.createLocation(
+        name.trim(),
+        description.trim() || undefined,
+        latitude.trim() ? Number(latitude) : undefined,
+        longitude.trim() ? Number(longitude) : undefined
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["locations"] });
       setModalOpen(false);
       setName("");
       setDescription("");
+      setLatitude("");
+      setLongitude("");
     },
     onError: (err) => {
       const message = err instanceof ApiError ? err.detail : "No se pudo crear la ubicación";
@@ -86,6 +96,20 @@ export default function LocationsScreen({ navigation }: Props) {
               placeholder="Descripción (opcional)"
               value={description}
               onChangeText={setDescription}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Latitud (opcional, para exteriores)"
+              value={latitude}
+              onChangeText={setLatitude}
+              keyboardType="numeric"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Longitud (opcional, para exteriores)"
+              value={longitude}
+              onChangeText={setLongitude}
+              keyboardType="numeric"
             />
             <View style={styles.modalActions}>
               <Pressable onPress={() => setModalOpen(false)}>
