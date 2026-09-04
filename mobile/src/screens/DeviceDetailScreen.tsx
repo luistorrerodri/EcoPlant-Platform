@@ -19,6 +19,7 @@ const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
 };
 
 const TIME_RANGES: { label: string; hours: number }[] = [
+  { label: "2h", hours: 2 },
   { label: "6h", hours: 6 },
   { label: "24h", hours: 24 },
   { label: "2d", hours: 48 },
