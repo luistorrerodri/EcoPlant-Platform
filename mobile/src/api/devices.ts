@@ -28,6 +28,7 @@ export function renameDevice(deviceId: string, name: string): Promise<DeviceOut>
 }
 
 export interface DeviceConfigUpdate {
+  name?: string;
   plant_type_id?: string | null;
   humedad_min?: number;
   hora_inicio?: number;

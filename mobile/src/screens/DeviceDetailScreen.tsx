@@ -31,6 +31,11 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
   const [selectedCategory, setSelectedCategory] = useState<Category>("suelo");
   const [selectedHours, setSelectedHours] = useState(24);
 
+  const deviceQuery = useQuery({
+    queryKey: ["device", deviceId],
+    queryFn: () => devicesApi.getDevice(deviceId),
+  });
+
   const readingsQuery = useQuery({
     queryKey: ["readings", deviceId, selectedHours],
     queryFn: () => devicesApi.getReadings(deviceId, selectedHours),
@@ -48,7 +53,10 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.deviceId}>{deviceId}</Text>
+      <Text style={styles.deviceId}>{deviceQuery.data?.name ?? deviceId}</Text>
+      {deviceQuery.data?.name && deviceQuery.data.name !== deviceId ? (
+        <Text style={styles.deviceIdSubtitle}>{deviceId}</Text>
+      ) : null}
       <Text style={styles.estado}>Estado: {readingsQuery.data?.latest_estado ?? "—"}</Text>
 
       <Pressable
@@ -113,6 +121,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   content: { padding: 20 },
   deviceId: { fontSize: 22, fontWeight: "700" },
+  deviceIdSubtitle: { fontSize: 13, color: "#888", marginTop: 2 },
   estado: { fontSize: 15, color: "#666", marginTop: 4, marginBottom: 20 },
   waterButton: {
     backgroundColor: "#1565c0",

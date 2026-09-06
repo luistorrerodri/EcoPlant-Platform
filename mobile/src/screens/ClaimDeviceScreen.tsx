@@ -14,9 +14,15 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
   const queryClient = useQueryClient();
   const [deviceId, setDeviceId] = useState("");
   const [claimCode, setClaimCode] = useState("");
+  const [plantName, setPlantName] = useState("");
 
   const claimMutation = useMutation({
-    mutationFn: () => devicesApi.claimDevice(deviceId.trim(), claimCode.trim(), locationId),
+    mutationFn: async () => {
+      await devicesApi.claimDevice(deviceId.trim(), claimCode.trim(), locationId);
+      if (plantName.trim()) {
+        await devicesApi.renameDevice(deviceId.trim(), plantName.trim());
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       navigation.goBack();
@@ -33,6 +39,14 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
         Introduce el identificador del dispositivo y el código de reclamación de un solo uso que te dio quien
         administra la plataforma (van pegados en el propio macetero, o te los pasan aparte).
       </Text>
+
+      <Text style={styles.label}>Nombre de la planta (opcional)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Ej. Amapola, Gardenia..."
+        value={plantName}
+        onChangeText={setPlantName}
+      />
 
       <Text style={styles.label}>Identificador del dispositivo</Text>
       <TextInput

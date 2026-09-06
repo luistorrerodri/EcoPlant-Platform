@@ -5,7 +5,9 @@ export default function DeviceCard({ device, onPress }: { device: DeviceOut; onP
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Text style={styles.title}>{device.name ?? device.device_id}</Text>
-      <Text style={styles.subtitle}>{device.device_id}</Text>
+      {device.name && device.name !== device.device_id ? (
+        <Text style={styles.subtitle}>{device.device_id}</Text>
+      ) : null}
     </Pressable>
   );
 }

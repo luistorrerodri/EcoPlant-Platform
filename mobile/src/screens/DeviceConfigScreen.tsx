@@ -28,6 +28,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [isPickerOpen, setPickerOpen] = useState(false);
+  const [name, setName] = useState("");
   const [plantTypeId, setPlantTypeId] = useState<string | null>(null);
   const [humedadMin, setHumedadMin] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
@@ -46,6 +47,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     if (isInitialized || !deviceQuery.data) return;
+    setName(deviceQuery.data.name ?? "");
     setPlantTypeId(deviceQuery.data.plant_type_id);
     setHumedadMin(String(deviceQuery.data.humedad_min));
     setHoraInicio(String(deviceQuery.data.hora_inicio));
@@ -67,6 +69,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   const saveMutation = useMutation({
     mutationFn: () =>
       devicesApi.updateDeviceConfig(deviceId, {
+        name: name.trim() || deviceId,
         plant_type_id: plantTypeId,
         humedad_min: Number(humedadMin),
         hora_inicio: Number(horaInicio),
@@ -105,6 +108,9 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={[styles.label, { marginTop: 0 }]}>Nombre de la planta</Text>
+      <TextInput style={styles.input} placeholder="Ej. Amapola, Gardenia..." value={name} onChangeText={setName} />
+
       <Text style={styles.label}>Ubicación de la planta</Text>
       <View style={styles.envSelector}>
         {(["interior", "exterior"] as DeviceEnvironment[]).map((option) => (
