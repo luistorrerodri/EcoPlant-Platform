@@ -90,23 +90,33 @@ export default function LocationsScreen({ navigation }: Props) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Nueva ubicación</Text>
-            <TextInput style={styles.input} placeholder="Nombre" value={name} onChangeText={setName} />
+
+            <Text style={styles.label}>Nombre</Text>
+            <TextInput style={styles.input} placeholder="Ej. Terraza, Salón..." value={name} onChangeText={setName} />
+
+            <Text style={styles.label}>Descripción (opcional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Descripción (opcional)"
+              placeholder="Ej. Balcón orientado al sur"
               value={description}
               onChangeText={setDescription}
             />
+
+            <Text style={styles.label}>Coordenadas GPS (opcional, solo para exteriores)</Text>
+            <Text style={styles.hint}>
+              Solo hace falta si algún dispositivo de esta ubicación está marcado como exterior, para consultar la
+              previsión de lluvia. Puedes buscar "mis coordenadas" en Google Maps y copiarlas aquí.
+            </Text>
             <TextInput
               style={styles.input}
-              placeholder="Latitud (opcional, para exteriores)"
+              placeholder="Latitud, ej. 40.4168"
               value={latitude}
               onChangeText={setLatitude}
               keyboardType="numeric"
             />
             <TextInput
               style={styles.input}
-              placeholder="Longitud (opcional, para exteriores)"
+              placeholder="Longitud, ej. -3.7038"
               value={longitude}
               onChangeText={setLongitude}
               keyboardType="numeric"
@@ -163,6 +173,8 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 16 },
+  label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
+  hint: { fontSize: 12, color: "#888", marginBottom: 8 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16 },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 16 },
   cancel: { color: "#666", fontSize: 16, marginRight: 8 },
