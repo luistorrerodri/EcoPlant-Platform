@@ -58,16 +58,18 @@ export default function ProfileScreen() {
       {user?.full_name ? <Text style={styles.name}>{user.full_name}</Text> : null}
 
       <Text style={styles.sectionTitle}>Cambiar contraseña</Text>
+      <Text style={styles.label}>Contraseña actual</Text>
       <TextInput
         style={styles.input}
-        placeholder="Contraseña actual"
+        placeholder="Tu contraseña actual"
         secureTextEntry
         value={oldPassword}
         onChangeText={setOldPassword}
       />
+      <Text style={styles.label}>Contraseña nueva</Text>
       <TextInput
         style={styles.input}
-        placeholder="Contraseña nueva (mínimo 8 caracteres)"
+        placeholder="Mínimo 8 caracteres"
         secureTextEntry
         value={newPassword}
         onChangeText={setNewPassword}
@@ -89,8 +91,10 @@ export default function ProfileScreen() {
         Por defecto apunta a la Pi por tu WiFi de casa. Cámbiala aquí si usas una URL de Cloudflare Tunnel para
         acceder desde fuera.
       </Text>
+      <Text style={styles.label}>Dirección del servidor</Text>
       <TextInput
         style={styles.input}
+        placeholder="https://..."
         autoCapitalize="none"
         autoCorrect={false}
         value={serverUrl}
@@ -118,6 +122,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, color: "#666", marginTop: 4 },
   sectionTitle: { fontSize: 15, fontWeight: "700", marginTop: 28, marginBottom: 8, color: "#333" },
   hint: { fontSize: 13, color: "#888", marginBottom: 10, lineHeight: 18 },
+  label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 10, fontSize: 15 },
   secondaryButton: {
     borderWidth: 1,

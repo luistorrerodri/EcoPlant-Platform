@@ -123,17 +123,20 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
             <Text style={styles.modalTitle}>📍 Ubicación GPS</Text>
             <Text style={styles.modalHint}>
               Solo se usa para los dispositivos marcados como exteriores, para consultar la previsión de lluvia.
+              Puedes buscar "mis coordenadas" en Google Maps y copiarlas aquí.
             </Text>
+            <Text style={styles.label}>Latitud</Text>
             <TextInput
               style={styles.input}
-              placeholder="Latitud"
+              placeholder="Ej. 40.4168"
               value={latitude}
               onChangeText={setLatitude}
               keyboardType="numeric"
             />
+            <Text style={styles.label}>Longitud</Text>
             <TextInput
               style={styles.input}
-              placeholder="Longitud"
+              placeholder="Ej. -3.7038"
               value={longitude}
               onChangeText={setLongitude}
               keyboardType="numeric"
@@ -191,6 +194,7 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20 },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
   modalHint: { fontSize: 12, color: "#777", marginBottom: 14 },
+  label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16 },
   modalActions: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 16 },
   cancel: { color: "#666", fontSize: 16, marginRight: 8 },

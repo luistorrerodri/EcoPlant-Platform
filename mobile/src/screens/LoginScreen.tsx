@@ -30,17 +30,20 @@ export default function LoginScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>🌱 EcoPlant</Text>
 
+      <Text style={styles.label}>Email</Text>
       <TextInput
         style={styles.input}
-        placeholder="Email"
+        placeholder="tucorreo@ejemplo.com"
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
         onChangeText={setEmail}
       />
+
+      <Text style={styles.label}>Contraseña</Text>
       <TextInput
         style={styles.input}
-        placeholder="Contraseña"
+        placeholder="Tu contraseña"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -64,6 +67,7 @@ export default function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
   title: { fontSize: 32, fontWeight: "700", textAlign: "center", marginBottom: 32 },
+  label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: {
     borderWidth: 1,
     borderColor: "#ccc",

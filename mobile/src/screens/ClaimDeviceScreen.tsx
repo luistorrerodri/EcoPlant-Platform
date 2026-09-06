@@ -30,19 +30,23 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.hint}>
-        Introduce el `device_id` y el código de reclamación que te dio quien administra la plataforma.
+        Introduce el identificador del dispositivo y el código de reclamación de un solo uso que te dio quien
+        administra la plataforma (van pegados en el propio macetero, o te los pasan aparte).
       </Text>
 
+      <Text style={styles.label}>Identificador del dispositivo</Text>
       <TextInput
         style={styles.input}
-        placeholder="device_id (ej. macetero01)"
+        placeholder="Ej. macetero01"
         autoCapitalize="none"
         value={deviceId}
         onChangeText={setDeviceId}
       />
+
+      <Text style={styles.label}>Código de reclamación</Text>
       <TextInput
         style={styles.input}
-        placeholder="Código de reclamación"
+        placeholder="El código de un solo uso"
         autoCapitalize="none"
         value={claimCode}
         onChangeText={setClaimCode}
@@ -66,6 +70,7 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   hint: { color: "#666", marginBottom: 20, lineHeight: 20 },
+  label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 12, marginBottom: 12, fontSize: 16 },
   button: { backgroundColor: "#2e7d32", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 8 },
   buttonDisabled: { opacity: 0.5 },
