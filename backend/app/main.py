@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.routers import admin, auth, devices, internal, locations, plant_types
-from app.services import mqtt_client
+from app.services import health_scheduler, mqtt_client
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,7 +12,9 @@ logging.basicConfig(level=logging.INFO)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     mqtt_client.start()
+    health_scheduler.start()
     yield
+    health_scheduler.stop()
     mqtt_client.stop()
 
 

@@ -2,10 +2,12 @@ import json
 import logging
 import ssl
 import threading
+from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
 from app.config import settings
+from app.services.notify import notify_owner
 
 logger = logging.getLogger("ecoplant.mqtt")
 
@@ -43,25 +45,6 @@ def _on_disconnect(client, userdata, flags, reason_code, properties) -> None:
     logger.warning("MQTT desconectado (reason_code=%s)", reason_code)
 
 
-def _send_notification(device_id: str, title: str, body: str) -> None:
-    # Import diferido para evitar un ciclo de imports (database/models
-    # no necesitan saber nada de mqtt_client).
-    from app.database import SessionLocal
-    from app.models.device import Device
-    from app.services.push import send_push_notification
-
-    db = SessionLocal()
-    try:
-        device = db.get(Device, device_id)
-        if device is None or device.location is None:
-            return
-        owner = device.location.owner
-        if owner.push_token:
-            send_push_notification(owner.push_token, title, body)
-    finally:
-        db.close()
-
-
 def _notify_if_still_offline(device_id: str) -> None:
     # Se ejecuta DISCONNECT_GRACE_SECONDS despues del aviso de
     # desconexion, en un hilo aparte (threading.Timer). Si en ese margen
@@ -69,9 +52,29 @@ def _notify_if_still_offline(device_id: str) -> None:
     # el aviso se descarta - era un parpadeo, no una desconexion real.
     if _last_online_state.get(device_id) is not False:
         return
-    _send_notification(
+    notify_owner(
         device_id, "Dispositivo desconectado", f"{device_id} se ha desconectado inesperadamente."
     )
+
+
+def _persist_watering_event(device_id: str, payload: dict) -> None:
+    # Import diferido, mismo motivo que en app.services.notify.
+    from app.database import SessionLocal
+    from app.models.watering_event import WateringEvent
+
+    db = SessionLocal()
+    try:
+        db.add(WateringEvent(
+            device_id=device_id,
+            timestamp=datetime.fromtimestamp(payload["timestamp"], tz=timezone.utc),
+            duration_ms=payload["duracion_ms"],
+        ))
+        db.commit()
+    except (KeyError, TypeError):
+        logger.warning("Evento riego_completado de %s sin timestamp/duracion_ms valido: %s", device_id, payload)
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _on_message(client, userdata, message) -> None:
@@ -87,7 +90,8 @@ def _on_message(client, userdata, message) -> None:
     elif payload.get("online") is True:
         _last_online_state[device_id] = True
     elif payload.get("evento") == "riego_completado":
-        _send_notification(device_id, "Riego completado", f"{device_id} ha terminado de regar.")
+        _persist_watering_event(device_id, payload)
+        notify_owner(device_id, "Riego completado", f"{device_id} ha terminado de regar.")
 
 
 _client.on_connect = _on_connect

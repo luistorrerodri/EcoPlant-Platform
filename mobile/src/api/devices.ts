@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { DeviceEnvironment, DeviceOut, ReadingsOut } from "../types/api";
+import type { DeviceEnvironment, DeviceOut, HealthSummaryOut, ReadingsOut } from "../types/api";
 
 export function listDevices(): Promise<DeviceOut[]> {
   return apiRequest<DeviceOut[]>("/api/devices");
@@ -49,4 +49,12 @@ export function getReadings(deviceId: string, hours = 24): Promise<ReadingsOut> 
 
 export function waterDevice(deviceId: string): Promise<{ status: string }> {
   return apiRequest<{ status: string }>(`/api/devices/${deviceId}/water`, { method: "POST" });
+}
+
+export function getHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
+  return apiRequest<HealthSummaryOut>(`/api/devices/${deviceId}/health-summary`);
+}
+
+export function refreshHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
+  return apiRequest<HealthSummaryOut>(`/api/devices/${deviceId}/health-summary/refresh`, { method: "POST" });
 }

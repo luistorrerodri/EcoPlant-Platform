@@ -5,6 +5,7 @@ import LocationDetailScreen from "../screens/LocationDetailScreen";
 import ClaimDeviceScreen from "../screens/ClaimDeviceScreen";
 import DeviceDetailScreen from "../screens/DeviceDetailScreen";
 import DeviceConfigScreen from "../screens/DeviceConfigScreen";
+import DeviceHealthScreen from "../screens/DeviceHealthScreen";
 
 export type LocationsStackParamList = {
   Locations: undefined;
@@ -12,6 +13,7 @@ export type LocationsStackParamList = {
   ClaimDevice: { locationId: string };
   DeviceDetail: { deviceId: string };
   DeviceConfig: { deviceId: string };
+  DeviceHealth: { deviceId: string };
 };
 
 const Stack = createNativeStackNavigator<LocationsStackParamList>();
@@ -28,6 +30,7 @@ export default function LocationsStack() {
       <Stack.Screen name="ClaimDevice" component={ClaimDeviceScreen} options={{ title: "Reclamar dispositivo" }} />
       <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} options={{ title: "Dispositivo" }} />
       <Stack.Screen name="DeviceConfig" component={DeviceConfigScreen} options={{ title: "Configuración" }} />
+      <Stack.Screen name="DeviceHealth" component={DeviceHealthScreen} options={{ title: "Salud de la planta" }} />
     </Stack.Navigator>
   );
 }

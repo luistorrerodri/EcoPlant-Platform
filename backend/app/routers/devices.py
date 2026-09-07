@@ -6,12 +6,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.deps import get_current_user
 from app.models.device import Device
+from app.models.health_summary import HealthSummary
 from app.models.location import Location
 from app.models.plant_type import PlantType
 from app.models.user import User
 from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
+from app.schemas.health import HealthSummaryOut
 from app.security import verify_claim_code
-from app.services import influx_client, mqtt_client
+from app.services import health_analysis, influx_client, mqtt_client
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -128,6 +130,38 @@ def water_device(
     _get_owned_device_or_404(device_id, user, db)  # comprobacion de propiedad
     mqtt_client.publish_water_command(device_id)
     return {"status": "comando de riego enviado"}
+
+
+@router.get("/{device_id}/health-summary", response_model=HealthSummaryOut)
+def get_health_summary(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> HealthSummary:
+    _get_owned_device_or_404(device_id, user, db)
+    summary = (
+        db.query(HealthSummary)
+        .filter(HealthSummary.device_id == device_id)
+        .order_by(HealthSummary.created_at.desc())
+        .first()
+    )
+    if summary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Todavía no hay ningún resumen de salud para este dispositivo",
+        )
+    return summary
+
+
+@router.post("/{device_id}/health-summary/refresh", response_model=HealthSummaryOut)
+def refresh_health_summary(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> HealthSummary:
+    device = _get_owned_device_or_404(device_id, user, db)
+    result = health_analysis.compute_health_summary(device, db)
+    summary = HealthSummary(device_id=device_id, **result.__dict__)
+    db.add(summary)
+    db.commit()
+    db.refresh(summary)
+    return summary
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

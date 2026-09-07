@@ -62,6 +62,25 @@ export interface ReadingsOut {
   points: ReadingPoint[];
 }
 
+export type HealthVerdict = "sana" | "revisar_riego" | "revisar_drenaje" | "datos_insuficientes";
+
+export interface HealthSummaryOut {
+  id: string;
+  device_id: string;
+  window_days: number;
+  verdict: HealthVerdict;
+  message: string;
+  pct_tiempo_bajo_minimo: number | null;
+  pct_tiempo_saturado: number | null;
+  num_riegos: number | null;
+  tiempo_recuperacion_medio_h: number | null;
+  temp_suelo_min: number | null;
+  temp_suelo_max: number | null;
+  temp_aire_min: number | null;
+  temp_aire_max: number | null;
+  created_at: string;
+}
+
 export interface ApiError {
   detail: string;
 }
