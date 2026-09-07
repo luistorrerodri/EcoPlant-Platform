@@ -26,24 +26,31 @@ def _run_due_devices() -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=DUE_INTERVAL_DAYS)
         devices = db.query(Device).filter(Device.claimed_at.isnot(None)).all()
         for device in devices:
-            last = (
-                db.query(HealthSummary)
-                .filter(HealthSummary.device_id == device.device_id)
-                .order_by(HealthSummary.created_at.desc())
-                .first()
-            )
-            if last is not None and last.created_at > cutoff:
-                continue
+            # Todo el cuerpo del dispositivo en un unico try/except: un fallo
+            # con uno (tabla no lista, Influx caido, lo que sea) no debe
+            # cortar la evaluacion del resto - se vio en real la primera vez
+            # que se desplego esto. El rollback es necesario porque Postgres
+            # deja la sesion "abortada" tras un error, y sin el, cualquier
+            # consulta del siguiente dispositivo en esta misma sesion
+            # fallaria tambien aunque no tenga nada que ver.
             try:
+                last = (
+                    db.query(HealthSummary)
+                    .filter(HealthSummary.device_id == device.device_id)
+                    .order_by(HealthSummary.created_at.desc())
+                    .first()
+                )
+                if last is not None and last.created_at > cutoff:
+                    continue
                 result = health_analysis.compute_health_summary(device, db)
+                summary = HealthSummary(device_id=device.device_id, **result.__dict__)
+                db.add(summary)
+                db.commit()
+                if result.verdict != "datos_insuficientes":
+                    notify_owner(device.device_id, "Resumen de salud de tu planta", result.message)
             except Exception:
                 logger.exception("Fallo calculando el resumen de salud de %s", device.device_id)
-                continue
-            summary = HealthSummary(device_id=device.device_id, **result.__dict__)
-            db.add(summary)
-            db.commit()
-            if result.verdict != "datos_insuficientes":
-                notify_owner(device.device_id, "Resumen de salud de tu planta", result.message)
+                db.rollback()
     finally:
         db.close()
 
