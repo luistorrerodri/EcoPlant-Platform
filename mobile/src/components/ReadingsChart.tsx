@@ -34,8 +34,11 @@ function downsample(points: ReadingPoint[], max: number): ReadingPoint[] {
 
 function formatTime(iso: string, showDate: boolean): string {
   const d = new Date(iso);
+  // En rangos largos la hora exacta no aporta - con solo 4 marcas en 7
+  // dias, mostrar dia+hora las apretuja y es dificil de leer. Se
+  // muestra solo la fecha, mas legible.
   if (showDate) {
-    return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString([], { hour: "2-digit" });
+    return d.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
   }
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -43,9 +46,11 @@ function formatTime(iso: string, showDate: boolean): string {
 export default function ReadingsChart({
   points,
   field,
+  hours,
 }: {
   points: ReadingPoint[];
   field: ReadingPoint["field"];
+  hours: number;
 }) {
   // El ancho real disponible se mide con onLayout en vez de calcularse a
   // partir de Dimensions.get("window") - ese calculo dependia de adivinar
@@ -70,10 +75,11 @@ export default function ReadingsChart({
 
   const markStep = Math.max(1, Math.floor((fieldPoints.length - 1) / (TIME_MARKS - 1)));
   const timeMarks = fieldPoints.filter((_, i) => i % markStep === 0 || i === fieldPoints.length - 1).slice(0, TIME_MARKS);
-  const spanHours =
-    (new Date(fieldPoints[fieldPoints.length - 1].time).getTime() - new Date(fieldPoints[0].time).getTime()) /
-    (1000 * 60 * 60);
-  const showDateInLabels = spanHours > 36;
+  // Se basa en el rango de filtro elegido (2h/6h/24h/2d/7d), no en el
+  // rango real de los puntos devueltos - un campo con poco historico
+  // (p.ej. temp_suelo recien anadido) no debe mostrar un eje distinto
+  // al resto de graficas solo por tener menos datos todavia.
+  const showDateInLabels = hours > 36;
 
   // El eje Y empieza en 0 por defecto, lo cual aplasta campos como
   // presion (valores siempre cerca de 1013) contra el borde superior.

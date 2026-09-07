@@ -24,6 +24,20 @@ function latestValue(points: ReadingPoint[], field: ReadingPoint["field"]): numb
   return fieldPoints.reduce((latest, p) => (p.time > latest.time ? p : latest)).value;
 }
 
+const SUMMARY_BY_CATEGORY: Record<
+  Category,
+  { field: ReadingPoint["field"]; icon: string; decimals: number; unit: string }[]
+> = {
+  suelo: [
+    { field: "humedad_suelo", icon: "💧", decimals: 0, unit: "%" },
+    { field: "temp_suelo", icon: "🌡️", decimals: 1, unit: "°C" },
+  ],
+  ambiente: [
+    { field: "temp_aire", icon: "🌡️", decimals: 1, unit: "°C" },
+    { field: "presion", icon: "🌬️", decimals: 0, unit: " hPa" },
+  ],
+};
+
 const TIME_RANGES: { label: string; hours: number }[] = [
   { label: "2h", hours: 2 },
   { label: "6h", hours: 6 },
@@ -48,8 +62,11 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
     refetchInterval: 30_000,
   });
 
-  const latestHumedad = latestValue(readingsQuery.data?.points ?? [], "humedad_suelo");
-  const latestTempSuelo = latestValue(readingsQuery.data?.points ?? [], "temp_suelo");
+  const points = readingsQuery.data?.points ?? [];
+  const summaryItems = SUMMARY_BY_CATEGORY[selectedCategory].map((item) => ({
+    ...item,
+    value: latestValue(points, item.field),
+  }));
 
   const waterMutation = useMutation({
     mutationFn: () => devicesApi.waterDevice(deviceId),
@@ -68,16 +85,13 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       ) : null}
       <Text style={styles.estado}>Estado: {readingsQuery.data?.latest_estado ?? "—"}</Text>
 
-      {latestHumedad != null || latestTempSuelo != null ? (
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryItem}>
-            💧 {latestHumedad != null ? `${Math.round(latestHumedad)}%` : "—"}
+      <View style={styles.summaryRow}>
+        {summaryItems.map((item) => (
+          <Text key={item.field} style={styles.summaryItem}>
+            {item.icon} {item.value != null ? `${item.value.toFixed(item.decimals)}${item.unit}` : "—"}
           </Text>
-          <Text style={styles.summaryItem}>
-            🌡️ {latestTempSuelo != null ? `${latestTempSuelo.toFixed(1)}°C` : "—"}
-          </Text>
-        </View>
-      ) : null}
+        ))}
+      </View>
 
       <Pressable
         style={styles.configButton}
@@ -130,7 +144,7 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
         <ActivityIndicator style={styles.loading} />
       ) : (
         FIELDS_BY_CATEGORY[selectedCategory].map((field) => (
-          <ReadingsChart key={field} points={readingsQuery.data?.points ?? []} field={field} />
+          <ReadingsChart key={field} points={points} field={field} hours={selectedHours} />
         ))
       )}
     </ScrollView>

@@ -31,6 +31,10 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
 
+  const [isInfoModalOpen, setInfoModalOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
   const devicesQuery = useQuery({
     queryKey: ["devices"],
     queryFn: devicesApi.listDevices,
@@ -40,6 +44,38 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
     queryKey: ["location", locationId],
     queryFn: () => locationsApi.getLocation(locationId),
   });
+
+  function openInfoModal() {
+    setName(locationQuery.data?.name ?? "");
+    setDescription(locationQuery.data?.description ?? "");
+    setInfoModalOpen(true);
+  }
+
+  const saveInfoMutation = useMutation({
+    mutationFn: () =>
+      locationsApi.updateLocation(locationId, {
+        name: name.trim(),
+        description: description.trim(),
+      }),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["location", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      navigation.setOptions({ title: updated.name });
+      setInfoModalOpen(false);
+    },
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.detail : "No se pudo guardar la ubicación";
+      Alert.alert("Error", message);
+    },
+  });
+
+  function handleSaveInfo() {
+    if (!name.trim()) {
+      Alert.alert("Nombre obligatorio", "La ubicación necesita un nombre.");
+      return;
+    }
+    saveInfoMutation.mutate();
+  }
 
   function openGpsModal() {
     setLatitude(locationQuery.data?.latitude != null ? String(locationQuery.data.latitude) : "");
@@ -87,6 +123,18 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
         keyExtractor={(item) => item.device_id}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
+          <>
+          <Pressable style={styles.gpsRow} onPress={openInfoModal}>
+            <Text style={styles.gpsRowIcon}>✏️</Text>
+            <View style={styles.gpsRowTextWrap}>
+              <Text style={styles.gpsRowTitle}>Nombre y descripción</Text>
+              <Text style={styles.gpsRowSubtitle}>
+                {locationQuery.data?.name ?? "—"}
+                {locationQuery.data?.description ? ` · ${locationQuery.data.description}` : ""}
+              </Text>
+            </View>
+            <Text style={styles.gpsRowChevron}>›</Text>
+          </Pressable>
           <Pressable style={styles.gpsRow} onPress={openGpsModal}>
             <Text style={styles.gpsRowIcon}>📍</Text>
             <View style={styles.gpsRowTextWrap}>
@@ -99,6 +147,7 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
             </View>
             <Text style={styles.gpsRowChevron}>›</Text>
           </Pressable>
+          </>
         }
         ListEmptyComponent={
           !devicesQuery.isLoading ? (
@@ -153,6 +202,44 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
                 onPress={handleSaveGps}
               >
                 {saveGpsMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Guardar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={isInfoModalOpen} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
+            <Text style={styles.modalTitle}>✏️ Nombre y descripción</Text>
+            <Text style={styles.label}>Nombre</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej. Mi Casa"
+              value={name}
+              onChangeText={setName}
+            />
+            <Text style={styles.label}>Descripción (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ej. Novelda"
+              value={description}
+              onChangeText={setDescription}
+            />
+            <View style={styles.modalActions}>
+              <Pressable onPress={() => setInfoModalOpen(false)}>
+                <Text style={styles.cancel}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.saveButton, saveInfoMutation.isPending && styles.buttonDisabled]}
+                disabled={saveInfoMutation.isPending}
+                onPress={handleSaveInfo}
+              >
+                {saveInfoMutation.isPending ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.saveButtonText}>Guardar</Text>
