@@ -96,3 +96,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 ## Autor
 
 Luis — Ingeniero de Telecomunicaciones, cursando Máster en IoT.
+
+## Licencia
+
+Repositorio publicado como portfolio técnico personal, con todos los derechos reservados — no es software de código abierto. Ver [`LICENSE`](LICENSE) para el detalle. Se puede consultar libremente con fines de evaluación (por ejemplo, procesos de selección), pero no reutilizar, copiar ni redistribuir sin autorización.
