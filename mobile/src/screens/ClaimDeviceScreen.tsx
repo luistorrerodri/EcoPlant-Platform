@@ -28,7 +28,7 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
       navigation.goBack();
     },
     onError: (err) => {
-      const message = err instanceof ApiError ? err.detail : "No se pudo reclamar el dispositivo";
+      const message = err instanceof ApiError ? err.detail : "No se pudo añadir el dispositivo";
       Alert.alert("Error", message);
     },
   });
@@ -36,7 +36,7 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.hint}>
-        Introduce el identificador del dispositivo y el código de reclamación de un solo uso que te dio quien
+        Introduce el identificador del dispositivo y el código de dispositivo de un solo uso que te dio quien
         administra la plataforma (van pegados en el propio macetero, o te los pasan aparte).
       </Text>
 
@@ -57,7 +57,7 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
         onChangeText={setDeviceId}
       />
 
-      <Text style={styles.label}>Código de reclamación</Text>
+      <Text style={styles.label}>Código de dispositivo</Text>
       <TextInput
         style={styles.input}
         placeholder="El código de un solo uso"
@@ -74,7 +74,7 @@ export default function ClaimDeviceScreen({ route, navigation }: Props) {
         {claimMutation.isPending ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.buttonText}>Reclamar</Text>
+          <Text style={styles.buttonText}>Añadir</Text>
         )}
       </Pressable>
     </View>

@@ -165,7 +165,7 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
       {devicesQuery.isLoading ? <ActivityIndicator style={styles.loading} /> : null}
 
       <Pressable style={styles.claimButton} onPress={() => navigation.navigate("ClaimDevice", { locationId })}>
-        <Text style={styles.claimButtonText}>+ Reclamar dispositivo</Text>
+        <Text style={styles.claimButtonText}>+ Dispositivo</Text>
       </Pressable>
 
       <Modal visible={isGpsModalOpen} animationType="slide" transparent>

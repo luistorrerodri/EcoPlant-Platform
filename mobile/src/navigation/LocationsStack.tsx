@@ -27,7 +27,7 @@ export default function LocationsStack() {
         component={LocationDetailScreen}
         options={({ route }) => ({ title: route.params.locationName })}
       />
-      <Stack.Screen name="ClaimDevice" component={ClaimDeviceScreen} options={{ title: "Reclamar dispositivo" }} />
+      <Stack.Screen name="ClaimDevice" component={ClaimDeviceScreen} options={{ title: "Añadir dispositivo" }} />
       <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} options={{ title: "Dispositivo" }} />
       <Stack.Screen name="DeviceConfig" component={DeviceConfigScreen} options={{ title: "Configuración" }} />
       <Stack.Screen name="DeviceHealth" component={DeviceHealthScreen} options={{ title: "Salud de la planta" }} />
