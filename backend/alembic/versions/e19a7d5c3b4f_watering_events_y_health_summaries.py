@@ -1,7 +1,7 @@
 """watering_events y health_summaries
 
 Revision ID: e19a7d5c3b4f
-Revises: cd15063a2c75
+Revises: 7c32955724a5
 Create Date: 2026-09-07 18:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'e19a7d5c3b4f'
-down_revision: Union[str, None] = 'cd15063a2c75'
+down_revision: Union[str, None] = '7c32955724a5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
