@@ -7,7 +7,7 @@ _client = InfluxDBClient(
 )
 _query_api = _client.query_api()
 
-NUMERIC_FIELDS = ["humedad_suelo", "temp_aire", "presion"]
+NUMERIC_FIELDS = ["humedad_suelo", "temp_aire", "presion", "temp_suelo"]
 
 
 def _aggregate_window(hours: int) -> str:
