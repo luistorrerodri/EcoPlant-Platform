@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as locationsApi from "../api/locations";
 import { ApiError } from "../api/client";
@@ -22,6 +23,7 @@ type Props = NativeStackScreenProps<LocationsStackParamList, "Locations">;
 
 export default function LocationsScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
   const [isModalOpen, setModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -88,7 +90,7 @@ export default function LocationsScreen({ navigation }: Props) {
 
       <Modal visible={isModalOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
             <Text style={styles.modalTitle}>Nueva ubicación</Text>
 
             <Text style={styles.label}>Nombre</Text>

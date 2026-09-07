@@ -14,9 +14,15 @@ type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceDetail">;
 type Category = "suelo" | "ambiente";
 
 const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
-  suelo: ["humedad_suelo"],
+  suelo: ["humedad_suelo", "temp_suelo"],
   ambiente: ["temp_aire", "presion"],
 };
+
+function latestValue(points: ReadingPoint[], field: ReadingPoint["field"]): number | null {
+  const fieldPoints = points.filter((p) => p.field === field);
+  if (fieldPoints.length === 0) return null;
+  return fieldPoints.reduce((latest, p) => (p.time > latest.time ? p : latest)).value;
+}
 
 const TIME_RANGES: { label: string; hours: number }[] = [
   { label: "2h", hours: 2 },
@@ -42,6 +48,9 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
     refetchInterval: 30_000,
   });
 
+  const latestHumedad = latestValue(readingsQuery.data?.points ?? [], "humedad_suelo");
+  const latestTempSuelo = latestValue(readingsQuery.data?.points ?? [], "temp_suelo");
+
   const waterMutation = useMutation({
     mutationFn: () => devicesApi.waterDevice(deviceId),
     onSuccess: () => Alert.alert("Riego enviado", "El comando de riego se ha enviado al dispositivo."),
@@ -58,6 +67,17 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
         <Text style={styles.deviceIdSubtitle}>{deviceId}</Text>
       ) : null}
       <Text style={styles.estado}>Estado: {readingsQuery.data?.latest_estado ?? "—"}</Text>
+
+      {latestHumedad != null || latestTempSuelo != null ? (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryItem}>
+            💧 {latestHumedad != null ? `${Math.round(latestHumedad)}%` : "—"}
+          </Text>
+          <Text style={styles.summaryItem}>
+            🌡️ {latestTempSuelo != null ? `${latestTempSuelo.toFixed(1)}°C` : "—"}
+          </Text>
+        </View>
+      ) : null}
 
       <Pressable
         style={styles.configButton}
@@ -122,7 +142,9 @@ const styles = StyleSheet.create({
   content: { padding: 20 },
   deviceId: { fontSize: 22, fontWeight: "700" },
   deviceIdSubtitle: { fontSize: 13, color: "#888", marginTop: 2 },
-  estado: { fontSize: 15, color: "#666", marginTop: 4, marginBottom: 20 },
+  estado: { fontSize: 15, color: "#666", marginTop: 4, marginBottom: 12 },
+  summaryRow: { flexDirection: "row", gap: 20, marginBottom: 20 },
+  summaryItem: { fontSize: 17, fontWeight: "600", color: "#333" },
   waterButton: {
     backgroundColor: "#1565c0",
     borderRadius: 8,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 
 import { useAuth } from "../auth/AuthContext";
@@ -28,7 +28,8 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>🌱 EcoPlant</Text>
+      <Image source={require("../../assets/icon.png")} style={styles.logo} resizeMode="contain" />
+      <Text style={styles.title}>EcoPlant</Text>
 
       <Text style={styles.label}>Email</Text>
       <TextInput
@@ -66,6 +67,7 @@ export default function LoginScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, backgroundColor: "#fff" },
+  logo: { width: 96, height: 96, alignSelf: "center", marginBottom: 12 },
   title: { fontSize: 32, fontWeight: "700", textAlign: "center", marginBottom: 32 },
   label: { fontSize: 13, fontWeight: "600", color: "#444", marginBottom: 6 },
   input: {

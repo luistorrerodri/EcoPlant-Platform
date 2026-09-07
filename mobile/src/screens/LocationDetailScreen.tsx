@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as devicesApi from "../api/devices";
 import * as locationsApi from "../api/locations";
@@ -24,6 +25,7 @@ type Props = NativeStackScreenProps<LocationsStackParamList, "LocationDetail">;
 export default function LocationDetailScreen({ route, navigation }: Props) {
   const { locationId } = route.params;
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   const [isGpsModalOpen, setGpsModalOpen] = useState(false);
   const [latitude, setLatitude] = useState("");
@@ -119,7 +121,7 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
 
       <Modal visible={isGpsModalOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
             <Text style={styles.modalTitle}>📍 Ubicación GPS</Text>
             <Text style={styles.modalHint}>
               Solo se usa para los dispositivos marcados como exteriores, para consultar la previsión de lluvia.

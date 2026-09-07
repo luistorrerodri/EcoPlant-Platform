@@ -52,7 +52,7 @@ export interface PlantTypeOut {
 
 export interface ReadingPoint {
   time: string;
-  field: "humedad_suelo" | "temp_aire" | "presion";
+  field: "humedad_suelo" | "temp_aire" | "presion" | "temp_suelo";
   value: number;
 }
 

@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as devicesApi from "../api/devices";
 import * as plantTypesApi from "../api/plantTypes";
@@ -25,6 +26,7 @@ type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceConfig">;
 export default function DeviceConfigScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
   const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets();
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [isPickerOpen, setPickerOpen] = useState(false);
@@ -166,7 +168,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
       <Modal visible={isPickerOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
             <Text style={styles.modalTitle}>Elegir tipo de planta</Text>
             <FlatList
               data={plantTypesQuery.data ?? []}
