@@ -21,6 +21,9 @@ lib_deps =
     adafruit/Adafruit SSD1306
     adafruit/Adafruit GFX Library
     adafruit/RTClib
+    paulstoffregen/OneWire
+    milesburton/DallasTemperature
+    tzapu/WiFiManager
 ```
 
 `WiFiClientSecure` y `time.h` (NTP) forman parte del core de Arduino para ESP32 y no requieren declaración.
@@ -34,9 +37,6 @@ cp secrets.h.example secrets.h
 ```
 
 ```cpp
-#define WIFI_SSID "tu_red"
-#define WIFI_PASS "tu_contraseña"
-
 static const char CA_CERT[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 ...contenido de ca.crt...
@@ -62,9 +62,17 @@ Generar el certificado de cliente de un dispositivo nuevo es responsabilidad de 
 
 `secrets.h` está en `.gitignore` y no debe subirse al repositorio.
 
-**2. Dirección del broker.** En el `.ino`, ajusta `mqtt_server`. Debe coincidir **exactamente** con una de las entradas del SAN del certificado del servidor, o el handshake TLS fallará por validación de nombre.
+**2. WiFi: portal cautivo, no credenciales en el código.** El firmware ya no lleva `WIFI_SSID`/`WIFI_PASS` en ningún archivo. Al arrancar, `connectWiFi()` usa [WiFiManager](https://github.com/tzapu/WiFiManager):
 
-**3. Identificador del dispositivo.** Cada macetero necesita el suyo:
+- Si el ESP32 ya tiene credenciales guardadas en su NVS (de un `WiFi.begin()` anterior, propio o de esta misma librería), se reconecta solo, sin mostrar nada.
+- Si no las tiene (dispositivo nuevo de fábrica) o la conexión falla, monta su propia red WiFi `EcoPlant-Setup` y sirve una página de configuración. Quien reciba el macetero se conecta a esa red desde su móvil, elige su WiFi real de la lista y escribe la contraseña — todo desde el navegador del móvil, sin tocar el dispositivo ni el firmware. El macetero se reinicia ya conectado.
+- El portal se cierra solo a los 3 minutos (`setConfigPortalTimeout(180)`) si nadie lo completa, y el dispositivo reintenta.
+
+Esto es lo que permite dar un macetero a alguien sin acceso al router (p. ej. un familiar) sin tener que reflashear nada.
+
+**3. Dirección del broker.** En el `.ino`, ajusta `mqtt_server`. Debe coincidir **exactamente** con una de las entradas del SAN del certificado del servidor, o el handshake TLS fallará por validación de nombre.
+
+**4. Identificador del dispositivo.** Cada macetero necesita el suyo:
 
 ```cpp
 #define DEVICE_ID "macetero01"
@@ -89,8 +97,9 @@ Con el monitor serie abierto, la secuencia esperada al arrancar es:
 ```
 BMP280 listo
 RTC DS1307 listo
+DS18B20 listo
 OLED inicializada
-Conectando a WiFi.....
+Conectando a WiFi (o abriendo portal EcoPlant-Setup si hace falta)...
 WiFi conectado
 IP ESP32: 192.168.x.x
 Sincronizando hora por NTP
@@ -103,7 +112,9 @@ Heap libre: 201004 | minimo historico: 191820
 
 El orden es deliberado: los periféricos se inicializan **antes** que la red, de modo que un fallo de conectividad no impide que el dispositivo siga midiendo y mostrando datos en local.
 
-Si algún periférico no aparece como listo, revisar el bus I2C. La carpeta [`pruebas/`](pruebas/) contiene sketches de diagnóstico independientes (escáner I2C, verificación de chip ID, prueba de cada componente por separado) que ayudan a aislar el problema.
+Si algún periférico I2C (BMP280, RTC, OLED) no aparece como listo, revisar el bus I2C. La carpeta [`pruebas/`](pruebas/) contiene sketches de diagnóstico independientes (escáner I2C, verificación de chip ID, prueba de cada componente por separado) que ayudan a aislar el problema.
+
+Si aparece "DS18B20 no encontrado", revisar la resistencia de pull-up (4.7kΩ entre el pin de datos, GPIO4, y 3.3V) — es el fallo de cableado más habitual con este sensor.
 
 ## Diagnóstico de errores de conexión
 
@@ -123,15 +134,15 @@ Cuando el fallo es de TLS, la librería imprime además un código de mbedTLS. E
 
 ## Consumo de recursos
 
-Con TLS habilitado, sobre un ESP32 DevKit:
+Con TLS y WiFiManager habilitados, sobre un ESP32 DevKit (build real, `pio run`: 47.836 / 327.680 bytes RAM, 1.078.057 / 1.310.720 bytes flash):
 
 | Recurso | Uso | Notas |
 |---|---|---|
-| RAM estática | ~14 % | — |
-| Flash | ~73 % | mbedTLS ocupa una parte considerable |
+| RAM estática | ~14.6 % | — |
+| Flash | ~82.2 % | mbedTLS ya ocupaba una parte considerable; WiFiManager añade `WebServer`/`DNSServer`/`ESPmDNS` como dependencias transitivas |
 | Heap en ejecución | ~200 KB libres | Mínimo observado: ~190 KB durante el handshake |
 
-El margen de heap es amplio. La flash, en cambio, condiciona el trabajo futuro: habilitar OTA requiere espacio para dos imágenes de firmware, lo que obligará a ajustar el esquema de particiones (`board_build.partitions` en `platformio.ini`).
+El margen de heap es amplio. La flash es la más ajustada: quedan ~227 KB libres, y habilitar OTA en el futuro requeriría espacio para dos imágenes de firmware, lo que obligará a ajustar el esquema de particiones (`board_build.partitions` en `platformio.ini`) o a liberar espacio en otro sitio primero.
 
 El firmware imprime el heap libre y su mínimo histórico en cada publicación. El mínimo es el dato relevante, porque captura el pico de consumo del handshake TLS aunque ya haya pasado.
 
@@ -142,3 +153,4 @@ El firmware imprime el heap libre y su mínimo histórico en cada publicación. 
 - **El riego es no bloqueante**: el dispositivo sigue publicando y atendiendo MQTT mientras la bomba está activa. Una orden que llegue durante un riego en curso se descarta en lugar de encolarse.
 - **Tope de seguridad**: la duración efectiva del riego se acota a un máximo absoluto (`TIEMPO_RIEGO_MAX`), de modo que un valor de configuración erróneo no puede dejar la bomba encendida indefinidamente.
 - **GPIO 25 y 26 están reservados** para un futuro caudalímetro por pulsos.
+- **DS18B20 en GPIO4**, enterrado en la tierra junto a la sonda de humedad de suelo. Necesita una resistencia de pull-up de 4.7kΩ entre el pin de datos y 3.3V — sin ella, `dsSensors.getDeviceCount()` da 0 y el firmware sigue funcionando pero sin publicar `temp_suelo`.

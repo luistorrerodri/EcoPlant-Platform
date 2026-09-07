@@ -8,6 +8,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <RTClib.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <WiFiManager.h>
 #include <time.h>
 #include "secrets.h"
 
@@ -16,15 +19,12 @@
 #define SCL_PIN 22
 #define SOIL_PIN 34
 #define BOMBA_PIN 27
+#define DS18B20_PIN 4
 // GPIO 25 y 26 reservados para un futuro caudalímetro (entrada por pulsos)
 
 // ---------- CALIBRACIÓN SUELO ----------
 #define SOIL_DRY 2482
 #define SOIL_WET 905
-
-// ---------- WIFI (definido en secrets.h) ----------
-const char* ssid = WIFI_SSID;
-const char* pass = WIFI_PASS;
 
 // ---------- MQTT ----------
 const char* mqtt_server = "192.168.1.140";
@@ -70,8 +70,11 @@ WiFiClientSecure espClient;
 PubSubClient client(espClient);
 Adafruit_BMP280 bmp;
 RTC_DS1307 rtc;
+OneWire oneWire(DS18B20_PIN);
+DallasTemperature dsSensors(&oneWire);
 
 bool bmpOk = false;
+bool ds18b20Ok = false;
 bool horaSincronizada = false;
 
 // ---------- TIMING ----------
@@ -109,13 +112,26 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 void connectWiFi() {
-  Serial.print("Conectando a WiFi");
-  WiFi.begin(ssid, pass);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // Portal cautivo: si el ESP32 ya tiene credenciales guardadas en su
+  // NVS (de un WiFi.begin() anterior, propio o de esta misma libreria),
+  // se reconecta solo, sin mostrar nada. Si no las tiene (dispositivo
+  // nuevo) o fallan, monta su propia red "EcoPlant-Setup" y sirve una
+  // pagina de configuracion en el navegador de quien se conecte a ella
+  // - todo el texto se escribe desde el movil, nunca en el propio
+  // dispositivo. Sustituye por completo a WIFI_SSID/WIFI_PASS de
+  // secrets.h, que ya no hacen falta.
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(180);  // 3 min sin nadie configurando -> reintenta solo
+
+  Serial.println("Conectando a WiFi (o abriendo portal EcoPlant-Setup si hace falta)...");
+  bool conectado = wm.autoConnect("EcoPlant-Setup");
+
+  if (!conectado) {
+    Serial.println("No se pudo conectar ni configurar a tiempo, reiniciando...");
+    ESP.restart();
   }
-  Serial.println("\nWiFi conectado");
+
+  Serial.println("WiFi conectado");
 }
 
 void reconnectMQTT() {
@@ -191,7 +207,7 @@ void sincronizarHora() {
   }
 }
 
-void updateDisplay(float t, float p, int soilPct, String estado, DateTime now) {
+void updateDisplay(float t, float p, int soilPct, float tempSuelo, String estado, DateTime now) {
 
   if (millis() - lastScreenChange > 4000) {
     lastScreenChange = millis();
@@ -234,6 +250,16 @@ void updateDisplay(float t, float p, int soilPct, String estado, DateTime now) {
       display.setCursor(0, 20);
       display.print(soilPct);
       display.print(" %");
+
+      display.setTextSize(1);
+      display.setCursor(0, 45);
+      display.print("Temp: ");
+      if (isnan(tempSuelo)) {
+        display.print("--");
+      } else {
+        display.print(tempSuelo, 1);
+        display.print(" C");
+      }
       break;
 
     // ---------- PANTALLA 3: ESTADO ----------
@@ -311,6 +337,14 @@ void setup() {
     Serial.println("RTC DS1307 no encontrado");
   } else {
     Serial.println("RTC DS1307 listo");
+  }
+
+  dsSensors.begin();
+  if (dsSensors.getDeviceCount() > 0) {
+    ds18b20Ok = true;
+    Serial.println("DS18B20 listo");
+  } else {
+    Serial.println("DS18B20 no encontrado");
   }
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
@@ -401,24 +435,34 @@ void loop() {
     int soilRaw = analogRead(SOIL_PIN);
     int soilPct = soilMoisturePercent(soilRaw);
 
+    float tempSuelo = NAN;
+    if (ds18b20Ok) {
+      dsSensors.requestTemperatures();
+      tempSuelo = dsSensors.getTempCByIndex(0);
+      if (tempSuelo == DEVICE_DISCONNECTED_C) {
+        tempSuelo = NAN;  // sensor mal conectado - no publicar -127 como si fuera un dato real
+      }
+    }
+
     DateTime now = rtc.now();
 
     // Mientras riega, la pantalla mantiene el aviso de RIEGO.
     if (!riegoEnCurso) {
-      updateDisplay(t, p, soilPct, soilStatus(soilPct), now);
+      updateDisplay(t, p, soilPct, tempSuelo, soilStatus(soilPct), now);
     }
 
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<300> doc;
     doc["device_id"] = DEVICE_ID;
     doc["humedad_suelo"] = soilPct;
     doc["estado"] = soilStatus(soilPct);
     doc["temp_aire"] = t;
     doc["presion"] = p;
+    doc["temp_suelo"] = tempSuelo;
     doc["hora"] = String(now.hour()) + ":" + String(now.minute()) + ":" + String(now.second());
     doc["fecha"] = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day());
     doc["timestamp"] = now.unixtime();
 
-    char buffer[256];
+    char buffer[300];
     serializeJson(doc, buffer);
 
     client.publish(mqtt_topic, buffer);
