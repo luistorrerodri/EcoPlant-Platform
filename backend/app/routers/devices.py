@@ -10,7 +10,7 @@ from app.models.health_summary import HealthSummary
 from app.models.location import Location
 from app.models.plant_type import PlantType
 from app.models.user import User
-from app.schemas.device import DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
+from app.schemas.device import CalibratePoint, DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
 from app.schemas.health import HealthSummaryOut
 from app.security import verify_claim_code
 from app.services import health_analysis, influx_client, mqtt_client
@@ -116,7 +116,9 @@ def update_device(
         # El dispositivo recibe sus propios umbrales por MQTT para poder
         # calcular el estado de su pantalla OLED sin decidir nada por su
         # cuenta - ver app/services/mqtt_client.py::publish_device_config.
-        mqtt_client.publish_device_config(device_id, device.humedad_min, device.humedad_max)
+        mqtt_client.publish_device_config(
+            device_id, device.humedad_min, device.humedad_max, device.soil_dry_raw, device.soil_wet_raw
+        )
     return device
 
 
@@ -138,6 +140,32 @@ def water_device(
     _get_owned_device_or_404(device_id, user, db)  # comprobacion de propiedad
     mqtt_client.publish_water_command(device_id)
     return {"status": "comando de riego enviado"}
+
+
+@router.post("/{device_id}/calibrate", response_model=DeviceOut)
+def calibrate_device(
+    device_id: str,
+    data: CalibratePoint,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Device:
+    device = _get_owned_device_or_404(device_id, user, db)
+    valor = influx_client.get_latest_value(device_id, "humedad_suelo_raw")
+    if valor is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se ha recibido ninguna lectura reciente del sensor. Comprueba que el dispositivo esté encendido y conectado.",
+        )
+    if data.punto == "seco":
+        device.soil_dry_raw = int(valor)
+    else:
+        device.soil_wet_raw = int(valor)
+    db.commit()
+    db.refresh(device)
+    mqtt_client.publish_device_config(
+        device_id, device.humedad_min, device.humedad_max, device.soil_dry_raw, device.soil_wet_raw
+    )
+    return device
 
 
 @router.get("/{device_id}/health-summary", response_model=HealthSummaryOut)

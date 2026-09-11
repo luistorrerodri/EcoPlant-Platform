@@ -117,13 +117,20 @@ def publish_water_command(device_id: str) -> None:
     result.wait_for_publish(timeout=5)
 
 
-def publish_device_config(device_id: str, humedad_min: int, humedad_max: int) -> None:
+def publish_device_config(
+    device_id: str, humedad_min: int, humedad_max: int, soil_dry_raw: int, soil_wet_raw: int
+) -> None:
     # Retained: un dispositivo que se reinicia recibe la ultima config
     # conocida al reconectar, sin esperar a que alguien vuelva a tocar
     # la configuracion desde la app. El servidor sigue siendo quien
-    # decide los umbrales - el dispositivo solo los aplica para su
-    # propia pantalla, igual que ya recibe el comando "REGAR" sin
-    # decidir cuando regar.
-    payload = json.dumps({"humedadMin": humedad_min, "humedadMax": humedad_max})
+    # decide los umbrales (y la calibracion del sensor) - el dispositivo
+    # solo los aplica para su propia pantalla, igual que ya recibe el
+    # comando "REGAR" sin decidir cuando regar.
+    payload = json.dumps({
+        "humedadMin": humedad_min,
+        "humedadMax": humedad_max,
+        "soilDry": soil_dry_raw,
+        "soilWet": soil_wet_raw,
+    })
     result = _client.publish(f"maceteros/{device_id}/config", payload, qos=1, retain=True)
     result.wait_for_publish(timeout=5)

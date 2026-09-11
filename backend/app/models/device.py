@@ -47,6 +47,15 @@ class Device(Base):
     # si se consulta la API meteorologica antes de regar en automatico.
     environment: Mapped[str | None] = mapped_column(String(20))
 
+    # Calibracion del sensor de humedad de suelo (raw ADC): por
+    # dispositivo, no por tipo de planta - es una propiedad fisica del
+    # sensor/sustrato concretos, no una preferencia de la especie. Los
+    # server_default coinciden con las constantes SOIL_DRY/SOIL_WET que
+    # ya usaba el firmware a mano, para que anadir estas columnas no
+    # cambie nada hasta que se recalibre de verdad desde la app.
+    soil_dry_raw: Mapped[int] = mapped_column(Integer, server_default="2482")
+    soil_wet_raw: Mapped[int] = mapped_column(Integer, server_default="905")
+
     # Hash del codigo de reclamacion (bcrypt, igual que una contraseña).
     # Se pone a NULL en cuanto se reclama - de un solo uso. Para volver
     # a reclamar un dispositivo desenganchado hace falta que un admin

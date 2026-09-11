@@ -170,6 +170,13 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
         )}
       </Pressable>
 
+      <Pressable
+        style={styles.calibrateButton}
+        onPress={() => navigation.navigate("CalibrateSoilSensor", { deviceId })}
+      >
+        <Text style={styles.calibrateButtonText}>🎛️ Calibrar sensor de humedad</Text>
+      </Pressable>
+
       <Modal visible={isPickerOpen} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
@@ -222,6 +229,15 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   saveButtonText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  calibrateButton: {
+    borderWidth: 1,
+    borderColor: "#2e7d32",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  calibrateButtonText: { color: "#2e7d32", fontSize: 15, fontWeight: "600" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: "70%" },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },

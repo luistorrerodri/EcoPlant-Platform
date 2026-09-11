@@ -45,10 +45,19 @@ class DeviceOut(BaseModel):
     hora_fin: int
     duracion_riego_ms: int
     environment: Environment | None
+    soil_dry_raw: int
+    soil_wet_raw: int
     claimed_at: datetime | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class CalibratePoint(BaseModel):
+    # Solo lectura desde el endpoint de calibracion (POST .../calibrate),
+    # no forma parte de DeviceUpdate: no tiene sentido "escribirlo a
+    # mano" via PATCH, se captura del sensor en el momento.
+    punto: Literal["seco", "humedo"]
 
 
 class ReadingPoint(BaseModel):

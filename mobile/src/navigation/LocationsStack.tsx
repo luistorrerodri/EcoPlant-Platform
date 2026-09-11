@@ -6,6 +6,7 @@ import ClaimDeviceScreen from "../screens/ClaimDeviceScreen";
 import DeviceDetailScreen from "../screens/DeviceDetailScreen";
 import DeviceConfigScreen from "../screens/DeviceConfigScreen";
 import DeviceHealthScreen from "../screens/DeviceHealthScreen";
+import CalibrateSoilSensorScreen from "../screens/CalibrateSoilSensorScreen";
 
 export type LocationsStackParamList = {
   Locations: undefined;
@@ -14,6 +15,7 @@ export type LocationsStackParamList = {
   DeviceDetail: { deviceId: string };
   DeviceConfig: { deviceId: string };
   DeviceHealth: { deviceId: string };
+  CalibrateSoilSensor: { deviceId: string };
 };
 
 const Stack = createNativeStackNavigator<LocationsStackParamList>();
@@ -31,6 +33,11 @@ export default function LocationsStack() {
       <Stack.Screen name="DeviceDetail" component={DeviceDetailScreen} options={{ title: "Dispositivo" }} />
       <Stack.Screen name="DeviceConfig" component={DeviceConfigScreen} options={{ title: "Configuración" }} />
       <Stack.Screen name="DeviceHealth" component={DeviceHealthScreen} options={{ title: "Salud de la planta" }} />
+      <Stack.Screen
+        name="CalibrateSoilSensor"
+        component={CalibrateSoilSensorScreen}
+        options={{ title: "Calibrar sensor" }}
+      />
     </Stack.Navigator>
   );
 }

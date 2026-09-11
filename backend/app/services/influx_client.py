@@ -61,3 +61,23 @@ def get_readings(device_id: str, hours: int) -> dict:
             latest_estado = record.get_value()
 
     return {"device_id": device_id, "latest_estado": latest_estado, "points": points}
+
+
+def get_latest_value(device_id: str, field: str) -> float | None:
+    # Consulta puntual sin aggregateWindow, para capturar "lo que marca
+    # el sensor ahora mismo" (p.ej. al calibrar) - get_readings() agrega
+    # a 1m/10m/1h segun el rango, demasiado impreciso para esto. El
+    # dispositivo publica cada 4s, asi que 30s de margen basta.
+    flux = f'''
+    from(bucket: "{settings.influxdb_bucket}")
+      |> range(start: -30s)
+      |> filter(fn: (r) => r._measurement == "sensores")
+      |> filter(fn: (r) => r._field == "{field}")
+      |> filter(fn: (r) => r.device_id == "{device_id}")
+      |> last()
+    '''
+    tables = _query_api.query(flux)
+    for table in tables:
+        for record in table.records:
+            return record.get_value()
+    return None

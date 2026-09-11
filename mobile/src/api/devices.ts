@@ -59,3 +59,10 @@ export function getHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
 export function refreshHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
   return apiRequest<HealthSummaryOut>(`/api/devices/${deviceId}/health-summary/refresh`, { method: "POST" });
 }
+
+export function calibrateDevice(deviceId: string, punto: "seco" | "humedo"): Promise<DeviceOut> {
+  return apiRequest<DeviceOut>(`/api/devices/${deviceId}/calibrate`, {
+    method: "POST",
+    body: JSON.stringify({ punto }),
+  });
+}

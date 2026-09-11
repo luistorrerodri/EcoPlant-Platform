@@ -23,8 +23,11 @@
 // GPIO 25 y 26 reservados para un futuro caudalímetro (entrada por pulsos)
 
 // ---------- CALIBRACIÓN SUELO ----------
-#define SOIL_DRY 2482
-#define SOIL_WET 905
+// Valores por defecto de referencia (los que ya se usaban a mano) - se
+// sobrescriben con los reales del dispositivo en cuanto llega el primer
+// mensaje retenido de mqtt_topic_config, ver soilDryCfg/soilWetCfg.
+#define SOIL_DRY_DEFAULT 2482
+#define SOIL_WET_DEFAULT 905
 
 // ---------- MQTT ----------
 const char* mqtt_server = "192.168.1.140";
@@ -88,14 +91,21 @@ bool horaSincronizada = false;
 float humedadMinCfg = 36;
 float humedadMaxCfg = 65;
 
+// Calibracion del sensor de humedad de suelo (raw ADC), mismo mecanismo
+// que humedadMinCfg/humedadMaxCfg - el servidor la guarda y la envia por
+// mqtt_topic_config, este dispositivo solo la aplica. Recalibrar ya no
+// exige reflashear: se hace desde la app (pantalla "Calibrar sensor").
+int soilDryCfg = SOIL_DRY_DEFAULT;
+int soilWetCfg = SOIL_WET_DEFAULT;
+
 // ---------- TIMING ----------
 unsigned long lastSend = 0;
 unsigned long ultimoRiego = 0;
 
 // ---------- FUNCIONES ----------
 int soilMoisturePercent(int raw) {
-  raw = constrain(raw, SOIL_WET, SOIL_DRY);
-  return map(raw, SOIL_DRY, SOIL_WET, 0, 100);
+  raw = constrain(raw, soilWetCfg, soilDryCfg);
+  return map(raw, soilDryCfg, soilWetCfg, 0, 100);
 }
 
 String soilStatus(int soilPct) {
@@ -137,7 +147,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     // El servidor decide los umbrales (segun el tipo de planta elegido
     // en la app); este dispositivo solo los guarda para calcular el
     // estado de su propia pantalla, no decide nada por su cuenta.
-    StaticJsonDocument<128> cfgDoc;
+    StaticJsonDocument<192> cfgDoc;
     DeserializationError err = deserializeJson(cfgDoc, mensaje);
     if (err) {
       Serial.print("Config recibida invalida: ");
@@ -146,10 +156,16 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
     if (cfgDoc.containsKey("humedadMin")) humedadMinCfg = cfgDoc["humedadMin"];
     if (cfgDoc.containsKey("humedadMax")) humedadMaxCfg = cfgDoc["humedadMax"];
+    if (cfgDoc.containsKey("soilDry")) soilDryCfg = cfgDoc["soilDry"];
+    if (cfgDoc.containsKey("soilWet")) soilWetCfg = cfgDoc["soilWet"];
     Serial.print("Config aplicada: humedadMin=");
     Serial.print(humedadMinCfg);
     Serial.print(" humedadMax=");
-    Serial.println(humedadMaxCfg);
+    Serial.print(humedadMaxCfg);
+    Serial.print(" soilDry=");
+    Serial.print(soilDryCfg);
+    Serial.print(" soilWet=");
+    Serial.println(soilWetCfg);
   }
 }
 
@@ -494,9 +510,13 @@ void loop() {
       updateDisplay(t, p, soilPct, tempSuelo, soilStatus(soilPct), now);
     }
 
-    StaticJsonDocument<300> doc;
+    StaticJsonDocument<350> doc;
     doc["device_id"] = DEVICE_ID;
     doc["humedad_suelo"] = soilPct;
+    // Valor crudo del ADC, sin convertir - lo usa el backend para
+    // capturar puntos de calibracion desde la app (ver POST
+    // /devices/{id}/calibrate), no se muestra en la app normal.
+    doc["humedad_suelo_raw"] = soilRaw;
     doc["estado"] = soilStatus(soilPct);
     doc["temp_aire"] = t;
     doc["presion"] = p;
@@ -505,7 +525,7 @@ void loop() {
     doc["fecha"] = String(now.year()) + "-" + String(now.month()) + "-" + String(now.day());
     doc["timestamp"] = now.unixtime();
 
-    char buffer[300];
+    char buffer[350];
     serializeJson(doc, buffer);
 
     client.publish(mqtt_topic, buffer);

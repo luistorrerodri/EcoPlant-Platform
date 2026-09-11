@@ -37,6 +37,8 @@ export interface DeviceOut {
   hora_fin: number;
   duracion_riego_ms: number;
   environment: DeviceEnvironment | null;
+  soil_dry_raw: number;
+  soil_wet_raw: number;
   claimed_at: string | null;
   created_at: string;
 }
