@@ -13,6 +13,7 @@ from app.services import influx_client
 WINDOW_DAYS = 4
 DRY_TOO_OFTEN_THRESHOLD = 0.25  # fraccion del tiempo bajo humedad_min
 SLOW_DRAINAGE_HOURS = 20.0  # horas hasta recuperar humedad_min+10 tras regar
+TOO_WET_THRESHOLD = 0.5  # fraccion del tiempo por encima de humedad_max
 MIN_POINTS_FOR_VERDICT = 12  # ~medio dia de lecturas agregadas a 1h
 DRYING_RATE_FAST_MARGIN = 1.3  # 30% mas rapido que el ritmo esperado del tipo
 DRYING_RATE_SLOW_MARGIN = 0.5  # menos de la mitad del ritmo esperado del tipo
@@ -132,6 +133,17 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
             f"El suelo ha estado por debajo del mínimo configurado ({device.humedad_min}%) durante "
             f"{pct_bajo_minimo:.0%} de los últimos {window_days} días. Puede que necesite regar más a "
             "menudo o revisar que el riego automático se esté ejecutando."
+        )
+    elif pct_saturado > TOO_WET_THRESHOLD:
+        # Sin riegos en la ventana no hay como medir tiempo_recuperacion_medio_h
+        # (se mide desde un evento de riego) - pero un suelo que pasa la
+        # mayor parte del tiempo por encima de su propio maximo, aunque no
+        # se haya regado, es la misma alarma real de fondo (exceso de agua).
+        verdict = "revisar_drenaje"
+        message = (
+            f"El suelo ha estado por encima del máximo configurado ({device.humedad_max}%) durante "
+            f"{pct_saturado:.0%} de los últimos {window_days} días. Puede indicar que el sustrato retiene "
+            "demasiada agua o que se está regando más de lo que esta planta necesita."
         )
     elif tiempo_recuperacion_medio_h is not None and tiempo_recuperacion_medio_h > SLOW_DRAINAGE_HOURS:
         verdict = "revisar_drenaje"
