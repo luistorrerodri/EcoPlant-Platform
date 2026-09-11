@@ -410,6 +410,17 @@ void setup() {
     Serial.println("OLED no encontrada");
   } else {
     Serial.println("OLED inicializada");
+    // display.begin() deja su logo de fabrica dibujado en pantalla, y
+    // nada lo vuelve a tocar hasta el primer ciclo de medida del loop()
+    // - que no llega hasta que WiFi/NTP/MQTT terminan. Sin esto, el
+    // logo se queda "congelado" en pantalla todo ese rato, dando la
+    // sensacion de que el dispositivo esta colgado.
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.setTextSize(1);
+    display.setCursor(0, 28);
+    display.print("Conectando...");
+    display.display();
   }
 
   // 2) Red
