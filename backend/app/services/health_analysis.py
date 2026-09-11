@@ -11,7 +11,6 @@ from app.services import influx_client
 # no ML) - con solo unos dias de historico no hay datos para entrenar ni
 # validar nada mas sofisticado. Pensados para ajustarse con uso real.
 WINDOW_DAYS = 4
-SATURATION_THRESHOLD = 85.0  # % de humedad de suelo, "posible encharcamiento"
 DRY_TOO_OFTEN_THRESHOLD = 0.25  # fraccion del tiempo bajo humedad_min
 SLOW_DRAINAGE_HOURS = 20.0  # horas hasta recuperar humedad_min+10 tras regar
 MIN_POINTS_FOR_VERDICT = 12  # ~medio dia de lecturas agregadas a 1h
@@ -112,7 +111,11 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
         )
 
     pct_bajo_minimo = sum(1 for p in humedad_points if p["value"] < device.humedad_min) / len(humedad_points)
-    pct_saturado = sum(1 for p in humedad_points if p["value"] > SATURATION_THRESHOLD) / len(humedad_points)
+    # Umbral por tipo de planta (device.humedad_max), no un porcentaje fijo:
+    # mismo bug de fondo que el de "estado" arreglado hoy - un 85% fijo
+    # nunca se disparaba para un cactus (humedad_max=32), aunque llevara
+    # dias muy por encima de lo que tolera ese tipo de planta.
+    pct_saturado = sum(1 for p in humedad_points if p["value"] > device.humedad_max) / len(humedad_points)
 
     recovery_threshold = device.humedad_min + 10
     recovery_samples = [
