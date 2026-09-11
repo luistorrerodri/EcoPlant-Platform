@@ -188,10 +188,20 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
     # planta - informativo, no cambia el veredicto (es un valor estimado
     # a partir de guias de cuidado, no de datos reales, ver el plan de
     # esta iteracion; no deberia poder disparar una alarma por si solo).
+    saturado_cronico = pct_saturado > TOO_WET_THRESHOLD
     esperado = device.plant_type.default_tasa_secado_max_pct_h if device.plant_type else None
     if tasa_secado_pct_h is not None and esperado is not None:
         if tasa_secado_pct_h > esperado * DRYING_RATE_FAST_MARGIN:
-            message += " Se seca más rápido de lo habitual para este tipo de planta."
+            if saturado_cronico:
+                # Un secado rapido aqui es una buena noticia, no una alarma
+                # aparte: explica que el exceso de agua detectado arriba
+                # deberia resolverse solo, en vez de sonar contradictorio.
+                message += (
+                    " De todas formas, se está secando más rápido de lo habitual para este tipo de "
+                    "planta, lo que hará que vuelva a niveles normales en breve."
+                )
+            else:
+                message += " Se seca más rápido de lo habitual para este tipo de planta."
         elif tasa_secado_pct_h < esperado * DRYING_RATE_SLOW_MARGIN:
             message += " Se seca más despacio de lo habitual para este tipo de planta — vigila que no quede agua estancada."
         else:

@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   verdictIcon: { fontSize: 40, marginBottom: 8 },
   verdictLabel: { fontSize: 20, fontWeight: "700", marginBottom: 10 },
-  message: { fontSize: 15, color: "#444", textAlign: "center", lineHeight: 21 },
+  message: { fontSize: 15, color: "#444", textAlign: "justify", lineHeight: 21 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   statBox: {
     flexBasis: "47%",
