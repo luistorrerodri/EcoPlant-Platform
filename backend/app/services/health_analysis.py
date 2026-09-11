@@ -17,6 +17,7 @@ TOO_WET_THRESHOLD = 0.5  # fraccion del tiempo por encima de humedad_max
 MIN_POINTS_FOR_VERDICT = 12  # ~medio dia de lecturas agregadas a 1h
 DRYING_RATE_FAST_MARGIN = 1.3  # 30% mas rapido que el ritmo esperado del tipo
 DRYING_RATE_SLOW_MARGIN = 0.5  # menos de la mitad del ritmo esperado del tipo
+MIN_DRYING_SEGMENT_HOURS = 3.0  # tramos de bajada mas cortos se descartan como ruido
 
 
 @dataclass
@@ -36,17 +37,40 @@ class HealthSummaryResult:
 
 
 def _drying_rate_pct_h(humedad_points: list[dict]) -> float | None:
-    # Media de la pendiente de bajada entre puntos consecutivos que
-    # decrecen (los tramos donde sube, justo tras un riego, se excluyen
-    # solos). Mismo principio que _recovery_hours: estadistica
-    # descriptiva simple sobre el propio historico, no ML.
+    # Tasa de secado por tramo real de bajada (de un maximo local al
+    # siguiente minimo local, antes de que vuelva a subir) - no paso a
+    # paso. Contar cada bajada puntual entre dos lecturas consecutivas
+    # sesga el resultado al alza: en una señal plana con ruido del
+    # sensor (42-41-42-41...) siempre hay bajadas puntuales que contar,
+    # pero nunca se restan las subidas que las compensan, así que un
+    # suelo que en realidad no se está secando puede dar una tasa
+    # positiva igualmente. Los tramos mas cortos que
+    # MIN_DRYING_SEGMENT_HOURS se descartan por el mismo motivo -
+    # probablemente ruido, no drenaje real.
     ordenados = sorted(humedad_points, key=lambda p: p["time"])
-    tasas = []
-    for anterior, actual in zip(ordenados, ordenados[1:]):
-        horas = (actual["time"] - anterior["time"]).total_seconds() / 3600
-        caida = anterior["value"] - actual["value"]
-        if horas > 0 and caida > 0:
-            tasas.append(caida / horas)
+    if len(ordenados) < 2:
+        return None
+
+    tasas: list[float] = []
+    pico = ordenados[0]
+    valle = ordenados[0]
+
+    def cerrar_tramo(pico: dict, valle: dict) -> None:
+        if valle["value"] >= pico["value"]:
+            return
+        horas = (valle["time"] - pico["time"]).total_seconds() / 3600
+        if horas >= MIN_DRYING_SEGMENT_HOURS:
+            tasas.append((pico["value"] - valle["value"]) / horas)
+
+    for punto in ordenados[1:]:
+        if punto["value"] > pico["value"]:
+            cerrar_tramo(pico, valle)
+            pico = punto
+            valle = punto
+        elif punto["value"] < valle["value"]:
+            valle = punto
+    cerrar_tramo(pico, valle)
+
     return sum(tasas) / len(tasas) if tasas else None
 
 
