@@ -99,8 +99,11 @@ def update_device(
         if plant_type is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tipo de planta no encontrado")
         device.plant_type_id = plant_type.id
+    humedad_changed = data.humedad_min is not None or data.humedad_max is not None
     if data.humedad_min is not None:
         device.humedad_min = data.humedad_min
+    if data.humedad_max is not None:
+        device.humedad_max = data.humedad_max
     if data.hora_inicio is not None:
         device.hora_inicio = data.hora_inicio
     if data.hora_fin is not None:
@@ -109,6 +112,11 @@ def update_device(
         device.environment = data.environment
     db.commit()
     db.refresh(device)
+    if humedad_changed:
+        # El dispositivo recibe sus propios umbrales por MQTT para poder
+        # calcular el estado de su pantalla OLED sin decidir nada por su
+        # cuenta - ver app/services/mqtt_client.py::publish_device_config.
+        mqtt_client.publish_device_config(device_id, device.humedad_min, device.humedad_max)
     return device
 
 

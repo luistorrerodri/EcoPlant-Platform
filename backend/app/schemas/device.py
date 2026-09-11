@@ -28,6 +28,7 @@ class DeviceUpdate(BaseModel):
     location_id: uuid.UUID | None = None
     plant_type_id: uuid.UUID | None = None
     humedad_min: int | None = Field(default=None, ge=0, le=100)
+    humedad_max: int | None = Field(default=None, ge=0, le=100)
     hora_inicio: int | None = Field(default=None, ge=0, le=23)
     hora_fin: int | None = Field(default=None, ge=0, le=23)
     environment: Environment | None = None
@@ -39,6 +40,7 @@ class DeviceOut(BaseModel):
     location_id: uuid.UUID | None
     plant_type_id: uuid.UUID | None
     humedad_min: int
+    humedad_max: int
     hora_inicio: int
     hora_fin: int
     duracion_riego_ms: int

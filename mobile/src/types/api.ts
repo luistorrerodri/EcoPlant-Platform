@@ -32,6 +32,7 @@ export interface DeviceOut {
   location_id: string | null;
   plant_type_id: string | null;
   humedad_min: number;
+  humedad_max: number;
   hora_inicio: number;
   hora_fin: number;
   duracion_riego_ms: number;
@@ -45,6 +46,7 @@ export interface PlantTypeOut {
   slug: string;
   name: string;
   default_humedad_min: number;
+  default_humedad_max: number;
   default_hora_inicio: number;
   default_hora_fin: number;
   default_duracion_riego_ms: number;

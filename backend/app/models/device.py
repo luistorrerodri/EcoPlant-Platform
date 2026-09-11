@@ -32,6 +32,12 @@ class Device(Base):
     # aqui son EXACTAMENTE los que macetero01 tiene hoy en produccion, para
     # que anadir estas columnas no cambie ni un bit del riego automatico.
     humedad_min: Mapped[int] = mapped_column(Integer, server_default="36")
+    # Umbral alto: por encima de este valor el estado pasa a "humedo"/
+    # "exceso de agua" (ver app/services/... calculo relativo en
+    # Node-RED, nodo "Formatear para InfluxDB"). 65 es el mismo techo
+    # que ya tenia el macetero01 en produccion (umbral fijo antiguo),
+    # para que anadir esta columna no cambie nada por si sola.
+    humedad_max: Mapped[int] = mapped_column(Integer, server_default="65")
     hora_inicio: Mapped[int] = mapped_column(Integer, server_default="8")
     hora_fin: Mapped[int] = mapped_column(Integer, server_default="21")
     duracion_riego_ms: Mapped[int] = mapped_column(Integer, server_default="9000")

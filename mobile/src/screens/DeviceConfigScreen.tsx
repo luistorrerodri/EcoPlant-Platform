@@ -33,6 +33,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   const [name, setName] = useState("");
   const [plantTypeId, setPlantTypeId] = useState<string | null>(null);
   const [humedadMin, setHumedadMin] = useState("");
+  const [humedadMax, setHumedadMax] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
   const [environment, setEnvironment] = useState<DeviceEnvironment | null>(null);
@@ -52,6 +53,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     setName(deviceQuery.data.name ?? "");
     setPlantTypeId(deviceQuery.data.plant_type_id);
     setHumedadMin(String(deviceQuery.data.humedad_min));
+    setHumedadMax(String(deviceQuery.data.humedad_max));
     setHoraInicio(String(deviceQuery.data.hora_inicio));
     setHoraFin(String(deviceQuery.data.hora_fin));
     setEnvironment(deviceQuery.data.environment);
@@ -63,6 +65,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   function selectPlantType(plantType: PlantTypeOut) {
     setPlantTypeId(plantType.id);
     setHumedadMin(String(plantType.default_humedad_min));
+    setHumedadMax(String(plantType.default_humedad_max));
     setHoraInicio(String(plantType.default_hora_inicio));
     setHoraFin(String(plantType.default_hora_fin));
     setPickerOpen(false);
@@ -74,6 +77,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
         name: name.trim() || deviceId,
         plant_type_id: plantTypeId,
         humedad_min: Number(humedadMin),
+        humedad_max: Number(humedadMax),
         hora_inicio: Number(horaInicio),
         hora_fin: Number(horaFin),
         ...(environment ? { environment } : {}),

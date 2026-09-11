@@ -134,15 +134,15 @@ Cuando el fallo es de TLS, la librería imprime además un código de mbedTLS. E
 
 ## Consumo de recursos
 
-Con TLS y WiFiManager habilitados, sobre un ESP32 DevKit (build real, `pio run`: 47.836 / 327.680 bytes RAM, 1.078.057 / 1.310.720 bytes flash):
+Con TLS y WiFiManager habilitados, sobre un ESP32 DevKit (build real, `pio run`: 47.868 / 327.680 bytes RAM, 1.083.189 / 1.310.720 bytes flash):
 
 | Recurso | Uso | Notas |
 |---|---|---|
 | RAM estática | ~14.6 % | — |
-| Flash | ~82.2 % | mbedTLS ya ocupaba una parte considerable; WiFiManager añade `WebServer`/`DNSServer`/`ESPmDNS` como dependencias transitivas |
+| Flash | ~82.6 % | mbedTLS ya ocupaba una parte considerable; WiFiManager añade `WebServer`/`DNSServer`/`ESPmDNS` como dependencias transitivas |
 | Heap en ejecución | ~200 KB libres | Mínimo observado: ~190 KB durante el handshake |
 
-El margen de heap es amplio. La flash es la más ajustada: quedan ~227 KB libres, y habilitar OTA en el futuro requeriría espacio para dos imágenes de firmware, lo que obligará a ajustar el esquema de particiones (`board_build.partitions` en `platformio.ini`) o a liberar espacio en otro sitio primero.
+El margen de heap es amplio. La flash es la más ajustada: quedan ~222 KB libres, y habilitar OTA en el futuro requeriría espacio para dos imágenes de firmware, lo que obligará a ajustar el esquema de particiones (`board_build.partitions` en `platformio.ini`) o a liberar espacio en otro sitio primero.
 
 El firmware imprime el heap libre y su mínimo histórico en cada publicación. El mínimo es el dato relevante, porque captura el pico de consumo del handshake TLS aunque ya haya pasado.
 

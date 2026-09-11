@@ -20,6 +20,7 @@ class PlantType(Base):
     # Valores por defecto que se copian a devices.* al elegir el tipo desde
     # la app - no se leen en caliente desde aqui en el ciclo de riego.
     default_humedad_min: Mapped[int] = mapped_column(Integer)
+    default_humedad_max: Mapped[int] = mapped_column(Integer)
     default_hora_inicio: Mapped[int] = mapped_column(Integer)
     default_hora_fin: Mapped[int] = mapped_column(Integer)
     default_duracion_riego_ms: Mapped[int] = mapped_column(Integer)

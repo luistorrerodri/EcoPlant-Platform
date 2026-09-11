@@ -115,3 +115,15 @@ def stop() -> None:
 def publish_water_command(device_id: str) -> None:
     result = _client.publish(f"maceteros/{device_id}/comando", "REGAR", qos=1)
     result.wait_for_publish(timeout=5)
+
+
+def publish_device_config(device_id: str, humedad_min: int, humedad_max: int) -> None:
+    # Retained: un dispositivo que se reinicia recibe la ultima config
+    # conocida al reconectar, sin esperar a que alguien vuelva a tocar
+    # la configuracion desde la app. El servidor sigue siendo quien
+    # decide los umbrales - el dispositivo solo los aplica para su
+    # propia pantalla, igual que ya recibe el comando "REGAR" sin
+    # decidir cuando regar.
+    payload = json.dumps({"humedadMin": humedad_min, "humedadMax": humedad_max})
+    result = _client.publish(f"maceteros/{device_id}/config", payload, qos=1, retain=True)
+    result.wait_for_publish(timeout=5)

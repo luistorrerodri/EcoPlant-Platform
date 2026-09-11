@@ -31,6 +31,7 @@ export interface DeviceConfigUpdate {
   name?: string;
   plant_type_id?: string | null;
   humedad_min?: number;
+  humedad_max?: number;
   hora_inicio?: number;
   hora_fin?: number;
   environment?: DeviceEnvironment;

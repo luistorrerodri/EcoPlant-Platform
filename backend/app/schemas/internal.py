@@ -6,6 +6,7 @@ class DeviceConfigOut(BaseModel):
     # config_maceteros que Node-RED ya lee de su contexto global, no
     # sigue la convencion snake_case del resto de la API.
     humedadMin: int
+    humedadMax: int
     horaInicio: int
     horaFin: int
     duracionRiegoMs: int

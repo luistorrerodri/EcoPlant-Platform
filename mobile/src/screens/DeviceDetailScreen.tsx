@@ -38,6 +38,14 @@ const SUMMARY_BY_CATEGORY: Record<
   ],
 };
 
+const ESTADO_LABELS: Record<string, string> = {
+  SECO: "Seco",
+  NECESITA_RIEGO: "Necesita riego",
+  OK: "OK",
+  HUMEDO: "Húmedo",
+  EXCESO_AGUA: "Exceso de agua",
+};
+
 const TIME_RANGES: { label: string; hours: number }[] = [
   { label: "2h", hours: 2 },
   { label: "6h", hours: 6 },
@@ -83,7 +91,9 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       {deviceQuery.data?.name && deviceQuery.data.name !== deviceId ? (
         <Text style={styles.deviceIdSubtitle}>{deviceId}</Text>
       ) : null}
-      <Text style={styles.estado}>Estado: {readingsQuery.data?.latest_estado ?? "—"}</Text>
+      <Text style={styles.estado}>
+        Estado: {ESTADO_LABELS[readingsQuery.data?.latest_estado ?? ""] ?? "—"}
+      </Text>
 
       <View style={styles.summaryRow}>
         {summaryItems.map((item) => (

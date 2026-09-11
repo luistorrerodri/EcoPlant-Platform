@@ -33,6 +33,7 @@ def get_device_configs(db: Session = Depends(get_db)) -> dict[str, dict]:
                     lluvia_prevista = True
         result[d.device_id] = {
             "humedadMin": d.humedad_min,
+            "humedadMax": d.humedad_max,
             "horaInicio": d.hora_inicio,
             "horaFin": d.hora_fin,
             "duracionRiegoMs": d.duracion_riego_ms,

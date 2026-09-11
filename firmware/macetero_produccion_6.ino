@@ -38,6 +38,7 @@ const char* mqtt_client_id = "esp32_" DEVICE_ID;
 const char* mqtt_topic = "maceteros/" DEVICE_ID "/sensores";
 const char* mqtt_topic_comando = "maceteros/" DEVICE_ID "/comando";
 const char* mqtt_topic_estado = "maceteros/" DEVICE_ID "/estado";
+const char* mqtt_topic_config = "maceteros/" DEVICE_ID "/config";
 
 // ---------- RIEGO ----------
 // Duración del pulso de riego. El umbral y la franja horaria no se
@@ -77,6 +78,16 @@ bool bmpOk = false;
 bool ds18b20Ok = false;
 bool horaSincronizada = false;
 
+// Umbrales de humedad de este dispositivo, recibidos por MQTT desde el
+// servidor (topic mqtt_topic_config, retained) segun el tipo de planta
+// configurado en la app. El ESP32 no decide nada por su cuenta: solo
+// aplica estos valores para calcular el estado de su propia pantalla,
+// igual que ya aplica sin cuestionar la orden "REGAR". Arrancan con los
+// valores de "Personalizado" como red de seguridad hasta que llega el
+// primer mensaje retenido tras conectar.
+float humedadMinCfg = 36;
+float humedadMaxCfg = 65;
+
 // ---------- TIMING ----------
 unsigned long lastSend = 0;
 unsigned long ultimoRiego = 0;
@@ -88,10 +99,17 @@ int soilMoisturePercent(int raw) {
 }
 
 String soilStatus(int soilPct) {
-  if (soilPct < 25) return "SECO";
-  if (soilPct < 36) return "NECESITA_RIEGO";
-  if (soilPct <= 65) return "OK";
-  if (soilPct <= 80) return "HUMEDO";
+  // Formula identica a la de Node-RED (nodo "Formatear para InfluxDB",
+  // funcion calcularEstado) - si se cambia el margen aqui, cambiarlo
+  // tambien alli para que la pantalla y la app no diverjan. Margen
+  // simetrico proporcional al rango configurado: un cactus (rango
+  // estrecho) tiene margenes de SECO/EXCESO mas ajustados que un
+  // helecho (rango ancho), en vez de un numero fijo igual para todos.
+  float margen = (humedadMaxCfg - humedadMinCfg) * 0.4;
+  if (soilPct < humedadMinCfg - margen) return "SECO";
+  if (soilPct < humedadMinCfg) return "NECESITA_RIEGO";
+  if (soilPct <= humedadMaxCfg) return "OK";
+  if (soilPct <= humedadMaxCfg + margen) return "HUMEDO";
   return "EXCESO_AGUA";
 }
 
@@ -101,13 +119,37 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     mensaje += (char)payload[i];
   }
 
-  Serial.print("Comando recibido en ");
+  Serial.print("Mensaje recibido en ");
   Serial.print(topic);
   Serial.print(": ");
   Serial.println(mensaje);
 
-  if (mensaje == "REGAR") {
-    riegoManualSolicitado = true;
+  String topicStr(topic);
+
+  if (topicStr == mqtt_topic_comando) {
+    if (mensaje == "REGAR") {
+      riegoManualSolicitado = true;
+    }
+    return;
+  }
+
+  if (topicStr == mqtt_topic_config) {
+    // El servidor decide los umbrales (segun el tipo de planta elegido
+    // en la app); este dispositivo solo los guarda para calcular el
+    // estado de su propia pantalla, no decide nada por su cuenta.
+    StaticJsonDocument<128> cfgDoc;
+    DeserializationError err = deserializeJson(cfgDoc, mensaje);
+    if (err) {
+      Serial.print("Config recibida invalida: ");
+      Serial.println(err.c_str());
+      return;
+    }
+    if (cfgDoc.containsKey("humedadMin")) humedadMinCfg = cfgDoc["humedadMin"];
+    if (cfgDoc.containsKey("humedadMax")) humedadMaxCfg = cfgDoc["humedadMax"];
+    Serial.print("Config aplicada: humedadMin=");
+    Serial.print(humedadMinCfg);
+    Serial.print(" humedadMax=");
+    Serial.println(humedadMaxCfg);
   }
 }
 
@@ -154,6 +196,7 @@ void reconnectMQTT() {
     if (conectado) {
       Serial.println(" conectado");
       client.subscribe(mqtt_topic_comando);
+      client.subscribe(mqtt_topic_config);
       client.publish(mqtt_topic_estado, "{\"online\":true}", true);
     } else {
       int rc = client.state();
