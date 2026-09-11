@@ -18,6 +18,7 @@ class HealthSummaryOut(BaseModel):
     temp_suelo_max: float | None
     temp_aire_min: float | None
     temp_aire_max: float | None
+    tasa_secado_pct_h: float | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

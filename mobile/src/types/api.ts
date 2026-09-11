@@ -80,6 +80,7 @@ export interface HealthSummaryOut {
   temp_suelo_max: number | null;
   temp_aire_min: number | null;
   temp_aire_max: number | null;
+  tasa_secado_pct_h: number | null;
   created_at: string;
 }
 

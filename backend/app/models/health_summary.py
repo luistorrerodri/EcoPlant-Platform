@@ -30,6 +30,7 @@ class HealthSummary(Base):
     temp_suelo_max: Mapped[float | None] = mapped_column(Float)
     temp_aire_min: Mapped[float | None] = mapped_column(Float)
     temp_aire_max: Mapped[float | None] = mapped_column(Float)
+    tasa_secado_pct_h: Mapped[float | None] = mapped_column(Float)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

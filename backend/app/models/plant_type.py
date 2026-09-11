@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Integer, String
+from sqlalchemy import Float, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,5 +24,11 @@ class PlantType(Base):
     default_hora_inicio: Mapped[int] = mapped_column(Integer)
     default_hora_fin: Mapped[int] = mapped_column(Integer)
     default_duracion_riego_ms: Mapped[int] = mapped_column(Integer)
+
+    # Ritmo de secado "normal" esperado para este tipo (%/h de bajada de
+    # humedad de suelo entre riegos), estimado a partir de guias de
+    # cuidado reales - no medido. Solo se lee server-side (ver
+    # app/services/health_analysis.py), no hay override por dispositivo.
+    default_tasa_secado_max_pct_h: Mapped[float] = mapped_column(Float)
 
     devices: Mapped[list["Device"]] = relationship(back_populates="plant_type")

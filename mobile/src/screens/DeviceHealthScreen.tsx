@@ -89,6 +89,12 @@ export default function DeviceHealthScreen({ route }: Props) {
                 </Text>
                 <Text style={styles.statLabel}>Recuperación media tras regar</Text>
               </View>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>
+                  {summary.tasa_secado_pct_h != null ? `${summary.tasa_secado_pct_h.toFixed(2)}%/h` : "—"}
+                </Text>
+                <Text style={styles.statLabel}>Ritmo de secado</Text>
+              </View>
               {summary.temp_suelo_min != null && summary.temp_suelo_max != null ? (
                 <View style={styles.statBox}>
                   <Text style={styles.statValue}>
