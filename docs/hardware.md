@@ -47,13 +47,13 @@ La presencia de `0x50` es normal: la mayoría de módulos DS1307 comerciales inc
 Los valores de referencia del sensor capacitivo, obtenidos empíricamente:
 
 ```cpp
-#define SOIL_DRY 2482   // lectura ADC en aire / sustrato seco
-#define SOIL_WET 905    // lectura ADC sumergido en agua
+int soilDryCfg = 2482;   // lectura ADC en aire / sustrato seco
+int soilWetCfg = 905;    // lectura ADC sumergido en agua
 ```
 
-El firmware mapea linealmente el valor crudo del ADC a un porcentaje de 0 a 100 entre esos dos extremos. Lecturas por encima de `SOIL_DRY` se recortan a 0 %.
+El firmware mapea linealmente el valor crudo del ADC a un porcentaje de 0 a 100 entre esos dos extremos. Lecturas por encima de `soilDryCfg` se recortan a 0 %.
 
-**Recalibración**: estos valores dependen del sensor concreto y del tipo de sustrato. Para recalibrar, leer el valor crudo (`analogRead(34)`) con la sonda al aire y con la sonda sumergida en agua, y ajustar las constantes en consecuencia.
+**Recalibración, desde la app, sin reflashear**: estos valores dependen del sensor concreto y del tipo de sustrato, así que ya no viven como constantes fijas — son configuración por dispositivo en Postgres (`devices.soil_dry_raw`/`soil_wet_raw`), con los valores de arriba como punto de partida. Desde la pantalla "Calibrar sensor" de la app: sacar la sonda a secar al aire y pulsar "Medir seco", luego sumergirla en agua y pulsar "Medir húmedo" — cada pulsación captura la última lectura cruda que el dispositivo ha publicado por MQTT (`humedad_suelo_raw`) y la envía de vuelta al ESP32 por el mismo canal de configuración retenido que ya usan los umbrales de riego. Detalle del mecanismo en [`../docs/architecture.md`](architecture.md#calibración-del-sensor-de-humedad).
 
 ## Alimentación
 

@@ -361,3 +361,65 @@ sudo systemctl restart caddy
 **Solución**: antes de enviar el aviso, el backend espera ahora `DISCONNECT_GRACE_SECONDS` (30s, vía `threading.Timer`) y solo notifica si el dispositivo *sigue* marcado como desconectado en ese momento — si llega un `online:true` durante la espera (la reconexión real, casi siempre en pocos segundos), el aviso se descarta sin más. No hace falta compartir estado con Node-RED: el backend tiene su propia suscripción MQTT independiente (identidad `backend-api`) y lleva su propio `_last_online_state` en memoria.
 
 **Aprendizaje**: un LWT con un keepalive corto es normal y esperable que se dispare de vez en cuando por ruido de red transitorio — no es un fallo a perseguir en el firmware. El sitio correcto para absorber ese ruido es donde se decide molestar al usuario (el envío del push), no intentar que la red casera nunca tenga un hipo. Complementario para una futura revisión de firmware (junto con el aprovisionamiento WiFi y el DS18B20 ya pendientes): subir el keepalive del propio ESP32 (p. ej. a 45-60s, con `client.setKeepAlive()`) reduciría aún más la frecuencia de estos parpadeos, aunque ya no sea estrictamente necesario para evitar el aviso falso.
+
+---
+
+## 22. El estado de la planta no coincidía con el tipo de planta configurado
+
+**Síntoma**: Luis reportó (2026-09-11) que una Suculenta/cactus mostraba "NECESITA_RIEGO" al 36% de humedad de suelo — un umbral que solo tenía sentido para el valor por defecto original de la planta "Personalizado", no para un cactus, que a ese nivel está sobradamente húmedo.
+
+**Diagnóstico**: `soilStatus()` en firmware clasificaba el estado con umbrales fijos (25/36/65/80%), sin tener en cuenta que cada dispositivo podía tener un tipo de planta distinto configurado desde la app.
+
+**Solución**: se generalizó la fórmula a un margen proporcional al rango configurado por dispositivo (`humedad_min`/`humedad_max`, con `humedad_max` como columna nueva), aplicada de forma idéntica en Node-RED ("Formatear para InfluxDB") y en firmware, más un topic MQTT retenido (`maceteros/{id}/config`) para que el ESP32 reciba sus propios umbrales sin reflashear — igual que ya recibe el comando de riego sin decidir nada por su cuenta.
+
+**Bug real durante el despliegue**: tras aplicar el cambio, el `PATCH` desde la app respondía `200 OK` pero el ESP32 nunca recibía la configuración nueva por MQTT. Se descartó primero la app (un `PATCH` directo por `curl` dio el mismo resultado) y después el backend (sin errores en el log). La causa real: `/etc/mosquitto/acl` no tenía permiso de escritura para `backend-api` ni de lectura para el propio dispositivo sobre el topic `config`, recién creado — **Mosquitto descarta en silencio un publish/subscribe denegado por ACL, sin avisar al publicador**, así que no había ningún error visible en ningún sitio. Confirmado leyendo el ACL directamente en la Pi y añadiendo las dos líneas que faltaban.
+
+**Aprendizaje**: un mensaje MQTT "publicado con éxito" (sin excepción del lado del cliente) no significa que haya llegado a ningún sitio si el broker lo deniega por ACL — ese fallo es completamente silencioso por diseño. Al añadir un topic nuevo, dar de alta el permiso en el ACL es tan parte del cambio como el propio código; se detecta antes comprobando la entrega real (`mosquitto_sub` o el log del propio dispositivo) que confiando en la ausencia de errores en el backend.
+
+---
+
+## 23. `pct_saturado` en el resumen de salud usaba un umbral fijo del 85%, no el máximo del tipo de planta
+
+**Síntoma**: el mismo cactus (`humedad_max=32%`) llevaba días con la humedad al 41-42% — muy por encima de lo que tolera ese tipo de planta — pero "Salud de la planta" mostraba "Tiempo saturado: 0%".
+
+**Diagnóstico**: `pct_saturado`, en `health_analysis.py`, comparaba contra una constante fija (`SATURATION_THRESHOLD = 85.0`) heredada de antes de que existiera `humedad_max` por dispositivo — la métrica de salud se construyó unos días antes que ese campo. Mismo tipo de bug que la entrada #22, colado en un cálculo distinto por haberse implementado en momentos diferentes del proyecto.
+
+**Solución**: usar `device.humedad_max` en vez del umbral fijo.
+
+**Aprendizaje**: cuando la misma idea (un umbral relativo al tipo de planta) se aplica en varios sitios del código a lo largo del tiempo, conviene revisar los sitios más antiguos al introducir el campo que los habría corregido a todos desde el principio — un campo nuevo no se propaga solo a los cálculos que ya existían antes de que él existiera.
+
+---
+
+## 24. El veredicto de salud podía salir "Sana" con la planta encharcada varios días seguidos
+
+**Síntoma**: con `pct_saturado` ya corregido (#23) y mostrando 99%, el veredicto seguía siendo "✅ Sana".
+
+**Diagnóstico**: la lógica de veredicto solo contemplaba dos condiciones — humedad por debajo del mínimo con demasiada frecuencia, o recuperación lenta *tras un riego*. Sin ningún riego en la ventana (el caso real: la planta llevaba días sin necesitarlo, precisamente por estar encharcada), la segunda condición ni siquiera se evaluaba, porque `tiempo_recuperacion_medio_h` se mide desde un evento de riego que no existía.
+
+**Solución**: nueva condición en la cadena de veredicto — más de la mitad del tiempo de la ventana por encima de `humedad_max` también dispara "revisar_drenaje", con su propio mensaje, sin depender de que haya habido ningún riego.
+
+**Aprendizaje**: una métrica puede estar bien calculada y aun así no influir en la conclusión final si nada aguas abajo la conecta — `pct_saturado` ya existía y ya era correcto en ese momento, pero el veredicto nunca la miraba. Vale la pena revisar, tras corregir un dato, si algo debería estar usándolo y no lo está.
+
+---
+
+## 25. La tasa de secado confundía ruido del sensor con secado real
+
+**Síntoma**: para esa misma planta encharcada y prácticamente estable (41-42%, sin apenas variación), el resumen de salud mostraba "0.22-0.25%/h" de ritmo de secado y el mensaje decía "se seca más rápido de lo habitual" — contradictorio con llevar días sin bajar de verdad.
+
+**Diagnóstico**: la fórmula original promediaba la pendiente de **cada** bajada puntual entre dos lecturas consecutivas, sin restar las subidas que las compensan. En una señal prácticamente plana con el ruido normal de un sensor capacitivo (42, 41, 42, 41...), siempre hay bajadas puntuales que contar, pero nunca se contabilizan las subidas que las anulan — el resultado sale sistemáticamente sesgado al alza incluso sin secado real de fondo.
+
+**Solución**: en vez de paso a paso, medir tramos reales de bajada sostenida (de un máximo local a un mínimo local, de al menos 3 horas), descartando los tramos más cortos como ruido. Verificado con casos sintéticos antes de desplegar: una señal plana con ruido pasó de dar una tasa positiva falsa a dar `None` (sin dato, correctamente), y un secado real de 70% a 30% en 40 horas siguió dando exactamente 1%/h.
+
+**Aprendizaje**: un estimador que solo acumula eventos en una dirección (aquí, "cualquier bajada") sobre una señal con ruido simétrico sale sesgado por construcción, aunque cada bajada individual sea un dato real — hay que medir la tendencia neta (pico a valle), no una única cara del ruido. El fallo lo detectó una observación de sentido común de Luis ("¿cómo va a secarse rápido si lleva días igual?"), no una revisión de código — la señal más fiable de un cálculo mal planteado suele ser que el resultado no cuadra con lo que se ve a simple vista, no un error de sintaxis.
+
+---
+
+## 26. `humedad_suelo_raw` nunca llegaba a InfluxDB pese a que el firmware ya lo publicaba
+
+**Síntoma**: ninguno visible todavía — detectado antes del primer uso real, al revisar de pasada cómo crecía el almacenamiento de InfluxDB.
+
+**Diagnóstico**: el firmware llevaba desde la semana anterior publicando `humedad_suelo_raw` por MQTT (pensado para el endpoint de calibración del sensor), pero el nodo de Node-RED "Formatear para InfluxDB" reconstruye el objeto que se escribe en la base de datos con una lista fija de campos, y ese campo nunca se había añadido a esa lista — se quedaba en el mensaje MQTT sin llegar nunca a InfluxDB. El endpoint de calibración habría fallado siempre, con un mensaje de "sin lectura reciente", el primer día que alguien lo hubiera usado de verdad.
+
+**Solución**: añadir `humedad_suelo_raw` al objeto que construye el nodo de Node-RED.
+
+**Aprendizaje**: en un pipeline con una transformación intermedia explícita (aquí, un nodo que reconstruye el mensaje campo a campo en vez de reenviarlo tal cual), añadir un campo en el origen no basta por sí solo — hay que revisar cada punto del camino que filtra o reconstruye el payload. Un campo nuevo en el firmware no llega solo a la base de datos.

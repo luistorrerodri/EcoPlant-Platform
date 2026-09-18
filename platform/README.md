@@ -82,7 +82,7 @@ sudo chmod 644 /etc/mosquitto/ca_certificates/ca.crt
 
 Hasta aquí el broker demuestra su identidad al cliente (TLS del lado servidor). Falta el sentido contrario: que cada cliente demuestre la suya al broker, con un certificado propio firmado por la misma CA. Esto sustituye por completo al usuario/contraseña como mecanismo de autenticación — la identidad pasa a ser el **CN del certificado**, no una contraseña que se pueda filtrar.
 
-**Genera estos certificados donde tengas `ca.key`, no en la Raspberry Pi** — la clave privada de la CA no reside en el servidor (ver más abajo), así que este paso no puede hacerse ahí.
+**Estos certificados se pueden generar en la propia Raspberry Pi**, donde ya vive `ca.key` (cifrada con contraseña — ver "Copia de seguridad" al final de este documento). No hay ninguna máquina separada dedicada a la CA; es una mitigación más débil que el aislamiento físico, documentada como mejora de seguridad pendiente en [`../docs/architecture.md`](../docs/architecture.md#cifrado-en-tránsito).
 
 ```bash
 mkdir -p ~/certs/clients && cd ~/certs/clients

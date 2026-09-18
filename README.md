@@ -16,6 +16,10 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Pensado desde el diseño para escalar a múltiples dispositivos
 - API multiusuario propia (registro, ubicaciones, dispositivos), consumida por una app móvil real (Android, misma base para iOS)
 - Notificaciones push cuando un macetero se desconecta o termina de regar
+- Umbrales de riego y de estado personalizables por tipo de planta (catálogo de 12 tipos), no un valor fijo para todas
+- Consulta el pronóstico de lluvia antes de regar en exterior (Open-Meteo)
+- Resumen periódico de salud de la planta (tiempo bajo el mínimo, saturación, ritmo de secado) a partir del histórico
+- Calibración del sensor de humedad desde la app, sin reflashear el dispositivo
 
 ## Arquitectura
 
@@ -74,7 +78,10 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Acceso remoto seguro (reverse proxy con HTTPS): dashboard accesible desde fuera bajo demanda, sin abrir puertos en el router
 - [x] Backend propio con modelo multi-usuario (usuario → ubicación → dispositivo)
 - [x] App móvil: login, ubicaciones, dispositivos, histórico, riego manual y notificaciones push
-- [ ] Integración meteorológica y analítica sobre el histórico
+- [x] Catálogo de tipos de planta: umbrales de riego y de estado relativos a cada tipo, no fijos
+- [x] Integración meteorológica (Open-Meteo) para no regar en exterior si hay lluvia prevista
+- [x] Resumen de salud de la planta (rules-based) y calibración del sensor de humedad desde la app
+- [ ] Ajuste de umbrales por tipo de planta a partir de histórico real (aprendizaje automático)
 
 ## Problemas reales resueltos
 
@@ -84,6 +91,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - **Repositorio APT roto en Bookworm/ARM64**: fallo de verificación GPG persistente en el repositorio oficial de InfluxData para esa combinación de sistema, resuelto instalando desde el binario oficial con un servicio systemd propio en lugar de depender de `apt`.
 - **Riegos en ráfaga**: al condicionar el riego a la confirmación del dispositivo, las órdenes se encolaron en el broker mientras el firmware bloqueaba. Resuelto con una ventana de guarda en la plataforma y, de raíz, con un firmware no bloqueante.
 - **Dos implementaciones de TLS, dos criterios**: el mismo certificado era aceptado por un cliente y rechazado por el otro, primero por falta de SAN (Node.js ignora el Common Name) y después por el tipo de entrada del SAN (mbedTLS no evalúa las de tipo `iPAddress`). Resuelto con un certificado que satisface a ambas implementaciones.
+- **Un ACL que deniega en silencio**: al añadir un topic MQTT nuevo, la configuración llegaba con éxito desde la app (`200 OK`) pero nunca al dispositivo — sin ningún error visible en ningún componente. Mosquitto descarta en silencio un publish/subscribe denegado por ACL; el fallo solo se confirmó leyendo el propio fichero de ACL en el servidor.
 
 ## Estructura del repositorio
 
