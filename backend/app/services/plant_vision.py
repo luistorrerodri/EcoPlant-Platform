@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -76,12 +77,20 @@ def _num_riegos(device: Device, db: Session) -> int:
     )
 
 
+_VERDICT_RE = re.compile(r"^(bien|revisar|preocupante)\b[\s.:,;\-—–]*", re.IGNORECASE)
+
+
 def _parse_respuesta(texto: str) -> tuple[str, str]:
-    primera_linea, _, resto = texto.strip().partition("\n")
-    verdict = primera_linea.strip().lower().strip(".:,;")
-    if verdict not in VERDICTS:
+    texto = texto.strip()
+    # No asumir que el modelo respeta el salto de linea pedido en el
+    # prompt - en la practica a veces escribe "Bien. Aunque..." todo
+    # seguido en vez de "Bien\nAunque...". La palabra clave puede venir
+    # sola en su propia linea o pegada a la frase siguiente con un
+    # punto: se acepta cualquiera de las dos formas.
+    match = _VERDICT_RE.match(texto)
+    if not match:
         raise ValueError(f"Respuesta del modelo sin veredicto reconocible: {texto[:200]!r}")
-    return verdict, resto.strip()
+    return match.group(1).lower(), texto[match.end():].strip()
 
 
 def _image_part(data: bytes, mime_type: str) -> dict:
