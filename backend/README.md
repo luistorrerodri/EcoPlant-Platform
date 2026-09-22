@@ -7,6 +7,7 @@ API multiusuario (FastAPI + PostgreSQL) para EcoPlant Platform: registro/login, 
 - Python 3.11+
 - PostgreSQL 15 (accesible, con una base de datos y un usuario ya creados — ver [`../platform/README.md`](../platform/README.md#6-backend-api))
 - El resto de la plataforma corriendo: Mosquitto (mTLS) e InfluxDB, para los endpoints de riego y lecturas
+- Una clave de la API de Groq (gratis, sin tarjeta) para el diagnóstico visual — ver `GROQ_API_KEY` más abajo. Es un campo obligatorio de `Settings`: sin ella el backend entero no arranca, no solo el endpoint de diagnóstico
 
 ## Configuración
 
@@ -30,6 +31,7 @@ Rellena `.env`:
 | `MQTT_CLIENT_CERT_PATH`, `MQTT_CLIENT_KEY_PATH` | Certificado de cliente propio del backend (CN `backend-api`), generado siguiendo el mismo procedimiento que `nodered`/`macetero01` |
 | `INFLUXDB_URL`, `INFLUXDB_ORG`, `INFLUXDB_BUCKET` | Igual que el resto de la plataforma |
 | `INFLUXDB_TOKEN` | Token de **solo lectura**, distinto del que usa Node-RED (que tiene escritura) |
+| `GROQ_API_KEY` | Para el diagnóstico visual con IA. `console.groq.com` → API Keys, plan gratuito real (sin tarjeta) — ver "Diagnóstico visual de la planta con IA" en `docs/architecture.md` para el porqué de este proveedor |
 
 `.env` está en `.gitignore` y no debe subirse al repositorio.
 
@@ -70,10 +72,11 @@ backend/
 │   ├── database.py     # conexión SQLAlchemy
 │   ├── security.py     # hash de contraseñas/códigos, JWT
 │   ├── deps.py          # dependencias de autenticación (get_current_user, get_current_admin)
-│   ├── models/          # tablas SQLAlchemy (User, Location, Device, PlantType, RefreshToken)
+│   ├── models/          # tablas SQLAlchemy (User, Location, Device, PlantType, RefreshToken,
+│   │                    #   WateringEvent, HealthSummary, PlantPhotoDiagnosis)
 │   ├── schemas/         # modelos Pydantic de entrada/salida
 │   ├── routers/         # endpoints (auth, locations, devices, plant_types, internal, admin)
-│   └── services/        # clientes de MQTT e InfluxDB
+│   └── services/        # clientes de MQTT, InfluxDB, análisis de salud y diagnóstico visual con IA
 ├── alembic/              # migraciones de base de datos
 └── scripts/              # utilidades de línea de comandos
 ```
@@ -102,6 +105,7 @@ Debe devolver `{"status":"ok"}`. Para probar el flujo completo, usa el Swagger (
 4. `POST /api/devices/claim` → engancha el dispositivo sembrado a esa ubicación
 5. `GET /api/devices/{device_id}/readings` → histórico agregado desde InfluxDB
 6. `POST /api/devices/{device_id}/water` → publica el comando de riego por MQTT
+7. `POST /api/devices/{device_id}/photo-diagnosis` (subiendo una foto real como `multipart/form-data`) → valoración de un modelo con visión, cruzando la foto con el histórico de sensores
 
 ## Notas
 

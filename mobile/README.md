@@ -38,6 +38,10 @@ Requiere un proyecto de Firebase vinculado (uno ya creado para este proyecto, `e
 
 Si se regenera el proyecto de Firebase o se pierde la clave, hay que repetir el paso 2.
 
+## Diagnóstico visual con IA
+
+`expo-image-picker` (cámara y galería) para la pantalla "Salud de la planta" — configurado como config plugin en `app.json` con los textos de permiso en español (`cameraPermission`/`photosPermission`). Sube la foto con `FormData`; `src/api/client.ts` detecta un cuerpo `FormData` y no le fija `Content-Type` a mano, para que `fetch` añada el boundary multipart correcto solo.
+
 ## URL del servidor
 
 No está fija en el código: se guarda en `SecureStore` y se edita desde la pestaña **Perfil** de la propia app (`src/config.ts`). Por defecto apunta al dominio fijo (`https://api.ecoplantplatform.com`, un túnel de Cloudflare con nombre — funciona igual en casa o fuera), pero se puede cambiar a la IP de la LAN (`http://192.168.1.140:8080`) si se prefiere ese camino durante el desarrollo.

@@ -459,3 +459,15 @@ sudo systemctl restart caddy
 **Solución**: fijar `existente.created_at = datetime.now(timezone.utc)` explícitamente en la rama de actualización del endpoint, ya que `server_default` no cubre ese camino.
 
 **Aprendizaje**: `server_default` resuelve el valor inicial de una columna, no su ciclo de vida completo — en cualquier tabla donde una fila se actualiza en vez de crearse de nuevo cada vez (patrón "una fila por entidad, se sobreescribe", distinto del habitual "una fila nueva por evento" que ya usan `health_summaries` o `watering_events`), hay que decidir explícitamente qué columnas de fecha deben actualizarse a mano en el `UPDATE` y cuáles no.
+
+---
+
+## 30. El análisis del veredicto fallaba cuando el modelo no respetaba el formato pedido
+
+**Síntoma**: una petición a `POST /photo-diagnosis` dio `502` con `ValueError: Respuesta del modelo sin veredicto reconocible`, pese a que la respuesta de Groq (visible en el log) era perfectamente válida y coherente: `"Bien. Aunque las fotos de la planta... la muestran esponjadamente sana..."`.
+
+**Diagnóstico**: el prompt le pide al modelo que ponga el veredicto solo en la primera línea (`"Bien\nResto del mensaje"`), pero el análisis de la respuesta (`_parse_respuesta`) exigía ese salto de línea de forma estricta (`texto.partition("\n")`). El modelo, en la práctica, no siempre lo respeta — esta vez escribió `"Bien."` seguido del resto del mensaje en la misma línea, sin salto. Como la "primera línea" resultante era todo el párrafo entero, ninguna de las tres palabras de veredicto coincidía y la petición se rechazaba entera, aunque el contenido fuera perfectamente usable.
+
+**Solución**: sustituir el `partition` estricto por una expresión regular que busca la palabra de veredicto al principio del texto tolerando puntuación, guiones o saltos de línea indistintamente entre la palabra y el resto del mensaje (`^(bien|revisar|preocupante)\b[\s.:,;\-—–]*`). Verificado contra los formatos reales vistos en producción antes de desplegar.
+
+**Aprendizaje**: un LLM sigue instrucciones de formato de forma probabilística, no como un contrato — pedirle "responde así exactamente" reduce la probabilidad de que se salte el formato, pero no la elimina. El código que interpreta su respuesta tiene que ser tan tolerante como haga falta para aceptar cualquier variación razonable del formato pedido, no solo la más esperable; un analizador que solo acepta la forma exacta del ejemplo del prompt es, en la práctica, un analizador frágil.

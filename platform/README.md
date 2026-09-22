@@ -740,6 +740,30 @@ if (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60 
 
 **3. Actualizar el snapshot de `flows.json`**: el archivo del repo lleva desde el roadmap punto 1 sin reflejar los cambios hechos a mano en el editor (poller, sliders desconectados, init deshabilitado, y ahora esto). En vez de parchear el archivo a mano, hacer un *Export* completo desde el propio Node-RED (menú → Export → todo el flujo → copiar) y sobrescribir `platform/nodered/flows.json` entero, para que vuelva a ser un reflejo fiel del estado real.
 
+### Diagnóstico visual de la planta con IA
+
+Tabla nueva (`plant_photo_diagnoses`) y tres endpoints nuevos bajo `/api/devices/{id}/photo-diagnosis*` — puramente aditivo, no toca Node-RED ni el ciclo de riego para nada.
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate && pip install -r requirements.txt
+```
+
+Añadir `GROQ_API_KEY` al `.env` (gratis, sin tarjeta, en `console.groq.com` → API Keys):
+
+```bash
+echo "GROQ_API_KEY=tu_clave_aqui" >> .env
+```
+
+```bash
+alembic upgrade head
+sudo systemctl restart ecoplant-backend
+```
+
+**Aviso importante si en algún momento se cambia de proveedor de IA otra vez** (ya pasó una vez con este mismo campo — ver troubleshooting #22-#30, en concreto la #27): `echo "CLAVE=valor" >> .env` **añade** una línea, no sustituye la anterior. Cambiar de `ANTHROPIC_API_KEY` a `GEMINI_API_KEY` a `GROQ_API_KEY` sin borrar las líneas viejas dejó el `.env` con las tres a la vez — `Settings` (Pydantic, `extra="forbid"` por defecto) rechaza cualquier variable del `.env` que no tenga su campo correspondiente en `app/config.py`, y el backend entero se niega a arrancar (`ValidationError: extra_forbidden`), no solo el endpoint que la usa. Si esto vuelve a pasar, `grep -i api_key .env` para ver qué hay de verdad, y borrar a mano las líneas que ya no correspondan a un campo de `Settings`.
+
+Verificar por Swagger (`/api/docs`), sin necesitar la app: `POST /api/devices/macetero01/photo-diagnosis`, subiendo una foto real como `multipart/form-data`. Debe devolver `200` con un `verdict` (`bien`/`revisar`/`preocupante`) y un `message` que mencione tanto lo que se ve en la foto como si coincide con los datos de los sensores de los últimos 5 días. El contexto exacto que se le manda al modelo queda en el log (`journalctl -u ecoplant-backend`, buscar `"Contexto de sensores"`) por si hace falta verificarlo sin adivinar por el texto de la respuesta.
+
 ---
 
 ## Verificación del stack completo
