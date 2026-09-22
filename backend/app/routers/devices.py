@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -20,6 +21,8 @@ from app.services import health_analysis, influx_client, mqtt_client, plant_visi
 
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
+
+logger = logging.getLogger("ecoplant.devices")
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -234,11 +237,12 @@ async def submit_photo_diagnosis(
         verdict, message = plant_vision.diagnose_plant(
             photo_bytes, photo.content_type, device, db, previous_photo=previous_photo
         )
-    except Exception as err:
+    except Exception:
+        logger.exception("Fallo analizando foto con IA para %s", device_id)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No se pudo analizar la foto con IA. Inténtalo de nuevo en unos minutos.",
-        ) from err
+        )
 
     if existente is not None:
         existente.photo = photo_bytes
