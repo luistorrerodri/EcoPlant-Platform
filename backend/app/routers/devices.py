@@ -254,6 +254,10 @@ def submit_photo_diagnosis(
         existente.photo_content_type = photo.content_type
         existente.verdict = verdict
         existente.message = message
+        # server_default=func.now() solo se aplica al INSERT, no a un
+        # UPDATE - sin esto, created_at se queda congelado en la primera
+        # captura para siempre, aunque la fila se sobreescriba despues.
+        existente.created_at = datetime.now(timezone.utc)
         diagnosis = existente
     else:
         diagnosis = PlantPhotoDiagnosis(

@@ -447,3 +447,15 @@ sudo systemctl restart caddy
 **Solución**: recuperar la línea que faltaba, y reforzar además el propio texto de instrucciones para pedir explícitamente que compare la foto con los datos de los sensores y señale cualquier contradicción entre ambos (antes solo se le pasaba el contexto sin pedirle que lo usara de forma activa).
 
 **Aprendizaje**: un `200 OK` con una respuesta que "suena bien" no prueba que la petición llevara todo lo que debía llevar — aquí, a diferencia de un fallo con traceback, no había ningún error que mirar; el propio caso de prueba (probarlo con un dispositivo cuyo estado real ya se conocía de sobra) fue lo que permitió notar que faltaba algo, comparando lo que decía la IA con lo que ya se sabía por otra vía. Al reescribir una función para cambiar de proveedor, comparar línea a línea con la versión anterior (o, mejor, escribir antes un caso de prueba que confirme qué contiene realmente la petición enviada) habría detectado esto antes de desplegarlo.
+
+---
+
+## 29. `created_at` del diagnóstico visual se quedaba congelado en la primera foto
+
+**Síntoma**: tras subir una segunda foto (con veredicto y mensaje nuevos, correctos), la respuesta seguía mostrando la fecha de la primera captura, minutos antes.
+
+**Diagnóstico**: `created_at` tiene `server_default=func.now()` en el modelo — eso solo lo rellena Postgres en un `INSERT`, nunca en un `UPDATE`. Como `plant_photo_diagnoses` guarda una sola fila por dispositivo que se sobreescribe (a propósito, ver la entrada de diseño en `docs/architecture.md`), la segunda captura y las siguientes son siempre un `UPDATE` sobre la misma fila — así que el campo nunca se volvía a tocar tras la primera vez.
+
+**Solución**: fijar `existente.created_at = datetime.now(timezone.utc)` explícitamente en la rama de actualización del endpoint, ya que `server_default` no cubre ese camino.
+
+**Aprendizaje**: `server_default` resuelve el valor inicial de una columna, no su ciclo de vida completo — en cualquier tabla donde una fila se actualiza en vez de crearse de nuevo cada vez (patrón "una fila por entidad, se sobreescribe", distinto del habitual "una fila nueva por evento" que ya usan `health_summaries` o `watering_events`), hay que decidir explícitamente qué columnas de fecha deben actualizarse a mano en el `UPDATE` y cuáles no.
