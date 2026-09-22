@@ -68,3 +68,6 @@ class Device(Base):
     plant_type: Mapped["PlantType | None"] = relationship(back_populates="devices")
     watering_events: Mapped[list["WateringEvent"]] = relationship(back_populates="device")
     health_summaries: Mapped[list["HealthSummary"]] = relationship(back_populates="device")
+    plant_photo_diagnosis: Mapped["PlantPhotoDiagnosis | None"] = relationship(
+        back_populates="device", uselist=False
+    )

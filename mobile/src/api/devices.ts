@@ -1,5 +1,6 @@
 import { apiRequest } from "./client";
-import type { DeviceEnvironment, DeviceOut, HealthSummaryOut, ReadingsOut } from "../types/api";
+import { getAccessToken, getApiBaseUrl } from "../auth/secureStorage";
+import type { DeviceEnvironment, DeviceOut, HealthSummaryOut, PhotoDiagnosisOut, ReadingsOut } from "../types/api";
 
 export function listDevices(): Promise<DeviceOut[]> {
   return apiRequest<DeviceOut[]>("/api/devices");
@@ -65,4 +66,43 @@ export function calibrateDevice(deviceId: string, punto: "seco" | "humedo"): Pro
     method: "POST",
     body: JSON.stringify({ punto }),
   });
+}
+
+export function submitPhotoDiagnosis(deviceId: string, photoUri: string): Promise<PhotoDiagnosisOut> {
+  const formData = new FormData();
+  // RN acepta este objeto {uri, name, type} como si fuera un Blob al
+  // construir el FormData - patron estandar para subir ficheros locales.
+  formData.append("photo", {
+    uri: photoUri,
+    name: "planta.jpg",
+    type: "image/jpeg",
+  } as unknown as Blob);
+  return apiRequest<PhotoDiagnosisOut>(`/api/devices/${deviceId}/photo-diagnosis`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export function getPhotoDiagnosis(deviceId: string): Promise<PhotoDiagnosisOut> {
+  return apiRequest<PhotoDiagnosisOut>(`/api/devices/${deviceId}/photo-diagnosis`);
+}
+
+// La miniatura de la foto no pasa por apiRequest (esa solo sabe parsear
+// JSON) - <Image> de React Native soporta pasarle sus propias cabeceras
+// para una URL autenticada, así que solo hace falta construir la URL y
+// el token vigente.
+export async function getPhotoDiagnosisImageSource(
+  deviceId: string,
+  cacheKey?: string
+): Promise<{ uri: string; headers: Record<string, string> }> {
+  const baseUrl = await getApiBaseUrl();
+  const accessToken = await getAccessToken();
+  // cacheKey (normalmente el created_at del diagnostico) evita que el
+  // cache de imagenes del sistema se quede con la foto vieja bajo la
+  // misma URL cuando se sube una nueva.
+  const cacheParam = cacheKey ? `?t=${encodeURIComponent(cacheKey)}` : "";
+  return {
+    uri: `${baseUrl}/api/devices/${deviceId}/photo-diagnosis/image${cacheParam}`,
+    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+  };
 }

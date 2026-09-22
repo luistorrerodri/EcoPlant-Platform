@@ -44,7 +44,10 @@ interface RequestOptions extends RequestInit {
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const baseUrl = await getApiBaseUrl();
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
+  // FormData (subida de fotos) necesita su propio boundary multipart que
+  // fetch añade solo - si fijamos Content-Type a mano aqui, se lo pisamos
+  // y el backend ya no puede parsear el cuerpo.
+  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (!options.skipAuth) {

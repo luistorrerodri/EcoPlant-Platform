@@ -86,6 +86,15 @@ export interface HealthSummaryOut {
   created_at: string;
 }
 
+export type PhotoVerdict = "bien" | "revisar" | "preocupante";
+
+export interface PhotoDiagnosisOut {
+  device_id: string;
+  verdict: PhotoVerdict;
+  message: string;
+  created_at: string;
+}
+
 export interface ApiError {
   detail: string;
 }

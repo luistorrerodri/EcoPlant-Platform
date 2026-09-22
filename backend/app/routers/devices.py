@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -8,12 +9,17 @@ from app.deps import get_current_user
 from app.models.device import Device
 from app.models.health_summary import HealthSummary
 from app.models.location import Location
+from app.models.plant_photo_diagnosis import PlantPhotoDiagnosis
 from app.models.plant_type import PlantType
 from app.models.user import User
 from app.schemas.device import CalibratePoint, DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
 from app.schemas.health import HealthSummaryOut
+from app.schemas.photo_diagnosis import PhotoDiagnosisOut
 from app.security import verify_claim_code
-from app.services import health_analysis, influx_client, mqtt_client
+from app.services import health_analysis, influx_client, mqtt_client, plant_vision
+
+MAX_PHOTO_BYTES = 8 * 1024 * 1024
+ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
 
 router = APIRouter(prefix="/api/devices", tags=["devices"])
 
@@ -198,6 +204,85 @@ def refresh_health_summary(
     db.commit()
     db.refresh(summary)
     return summary
+
+
+@router.post("/{device_id}/photo-diagnosis", response_model=PhotoDiagnosisOut)
+async def submit_photo_diagnosis(
+    device_id: str,
+    photo: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> PlantPhotoDiagnosis:
+    device = _get_owned_device_or_404(device_id, user, db)
+
+    if photo.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Formato de imagen no soportado. Sube una foto JPEG o PNG.",
+        )
+    photo_bytes = await photo.read()
+    if len(photo_bytes) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La foto pesa demasiado (máximo 8 MB).")
+
+    # La fila existente (si hay) es la "foto anterior" para la comparacion -
+    # se lee ANTES de tocar nada, y no se sobreescribe hasta tener una
+    # respuesta valida de la IA (ver plant_vision.diagnose_plant).
+    existente = db.get(PlantPhotoDiagnosis, device_id)
+    previous_photo = (existente.photo, existente.photo_content_type) if existente is not None else None
+
+    try:
+        verdict, message = plant_vision.diagnose_plant(
+            photo_bytes, photo.content_type, device, db, previous_photo=previous_photo
+        )
+    except Exception as err:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo analizar la foto con IA. Inténtalo de nuevo en unos minutos.",
+        ) from err
+
+    if existente is not None:
+        existente.photo = photo_bytes
+        existente.photo_content_type = photo.content_type
+        existente.verdict = verdict
+        existente.message = message
+        diagnosis = existente
+    else:
+        diagnosis = PlantPhotoDiagnosis(
+            device_id=device_id,
+            photo=photo_bytes,
+            photo_content_type=photo.content_type,
+            verdict=verdict,
+            message=message,
+        )
+        db.add(diagnosis)
+    db.commit()
+    db.refresh(diagnosis)
+    return diagnosis
+
+
+@router.get("/{device_id}/photo-diagnosis", response_model=PhotoDiagnosisOut)
+def get_photo_diagnosis(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> PlantPhotoDiagnosis:
+    _get_owned_device_or_404(device_id, user, db)
+    diagnosis = db.get(PlantPhotoDiagnosis, device_id)
+    if diagnosis is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Todavía no hay ningún diagnóstico visual para este dispositivo",
+        )
+    return diagnosis
+
+
+@router.get("/{device_id}/photo-diagnosis/image")
+def get_photo_diagnosis_image(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Response:
+    _get_owned_device_or_404(device_id, user, db)
+    diagnosis = db.get(PlantPhotoDiagnosis, device_id)
+    if diagnosis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No hay ninguna foto guardada")
+    return Response(content=diagnosis.photo, media_type=diagnosis.photo_content_type)
 
 
 @router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)

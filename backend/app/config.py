@@ -27,5 +27,9 @@ class Settings(BaseSettings):
     influxdb_bucket: str
     influxdb_token: str
 
+    # Diagnostico visual con IA (foto + sensores) - unico punto del
+    # proyecto donde contenido real sale hacia un servicio de terceros.
+    anthropic_api_key: str
+
 
 settings = Settings()
