@@ -1,7 +1,7 @@
-import base64
 from datetime import datetime, timedelta, timezone
 
-import anthropic
+from google import genai
+from google.genai import types
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -10,18 +10,18 @@ from app.models.watering_event import WateringEvent
 from app.services import influx_client
 
 WINDOW_HOURS = 120  # 5 dias, mismo contexto que pidio Luis
-MODEL = "claude-haiku-4-5-20251001"  # uso a demanda, unas pocas veces por semana - no justifica un modelo mas caro
+MODEL = "gemini-flash-latest"  # alias que Google mantiene apuntando al Flash mas reciente - nivel gratuito
 
-_client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+_client = genai.Client(api_key=settings.gemini_api_key)
 
 VERDICTS = {"bien", "revisar", "preocupante"}
 
 
 def _resumen_sensores(device: Device, db: Session) -> str:
-    # Mismo motivo que aggregateWindow() en get_readings: mandarle a
-    # Claude cientos de puntos en crudo no aporta nada que un resumen no
-    # de ya, y sale mas caro (ver troubleshooting #17 sobre payloads sin
-    # agregar). Se resume aqui, no se manda la serie completa.
+    # Mismo motivo que aggregateWindow() en get_readings: mandarle al
+    # modelo cientos de puntos en crudo no aporta nada que un resumen no
+    # de ya, y consume mas tokens (ver troubleshooting #17 sobre payloads
+    # sin agregar). Se resume aqui, no se manda la serie completa.
     readings = influx_client.get_readings(device.device_id, WINDOW_HOURS)
     points = readings["points"]
 
@@ -67,7 +67,7 @@ def _parse_respuesta(texto: str) -> tuple[str, str]:
     primera_linea, _, resto = texto.strip().partition("\n")
     verdict = primera_linea.strip().lower().strip(".:,;")
     if verdict not in VERDICTS:
-        raise ValueError(f"Respuesta de Claude sin veredicto reconocible: {texto[:200]!r}")
+        raise ValueError(f"Respuesta de Gemini sin veredicto reconocible: {texto[:200]!r}")
     return verdict, resto.strip()
 
 
@@ -99,33 +99,17 @@ def diagnose_plant(
         )
     instrucciones += f"\nDatos de los sensores:\n{contexto}"
 
-    content: list[dict] = []
+    # contents mezcla texto y objetos Part (imagen) en la misma lista - asi
+    # espera el SDK de google-genai las peticiones multimodales, ver
+    # types.Part.from_bytes en la doc del SDK (googleapis/python-genai).
+    contents: list = []
     if previous_photo is not None:
         prev_bytes, prev_content_type = previous_photo
-        content.append({"type": "text", "text": "Foto anterior:"})
-        content.append({
-            "type": "image",
-            "source": {
-                "type": "base64",
-                "media_type": prev_content_type,
-                "data": base64.b64encode(prev_bytes).decode("ascii"),
-            },
-        })
-        content.append({"type": "text", "text": "Foto actual:"})
-    content.append({
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": content_type,
-            "data": base64.b64encode(photo_bytes).decode("ascii"),
-        },
-    })
-    content.append({"type": "text", "text": instrucciones})
+        contents.append("Foto anterior:")
+        contents.append(types.Part.from_bytes(data=prev_bytes, mime_type=prev_content_type))
+        contents.append("Foto actual:")
+    contents.append(types.Part.from_bytes(data=photo_bytes, mime_type=content_type))
+    contents.append(instrucciones)
 
-    response = _client.messages.create(
-        model=MODEL,
-        max_tokens=400,
-        messages=[{"role": "user", "content": content}],
-    )
-    texto = "".join(block.text for block in response.content if block.type == "text")
-    return _parse_respuesta(texto)
+    response = _client.models.generate_content(model=MODEL, contents=contents)
+    return _parse_respuesta(response.text)
