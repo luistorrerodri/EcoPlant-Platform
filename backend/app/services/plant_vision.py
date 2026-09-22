@@ -11,7 +11,11 @@ from app.models.watering_event import WateringEvent
 from app.services import influx_client
 
 WINDOW_HOURS = 120  # 5 dias, mismo contexto que pidio Luis
-MODEL = "gemini-flash-latest"  # alias que Google mantiene apuntando al Flash mas reciente - nivel gratuito
+MODEL = "gemini-3.5-flash-lite"  # confirmado en produccion: el alias "gemini-flash-latest" (el modelo
+# insignia mas nuevo, al que apunta todo el mundo por defecto en el nivel gratuito) estaba saturado de
+# forma sostenida (5 intentos repartidos en 15 minutos, todos 503). Un modelo "lite" concreto, mas barato
+# de servir y con menos gente apuntandole por nombre, tiene mucha mas capacidad libre - de sobra para
+# valorar una foto, no hace falta el modelo mas potente para esto.
 
 # El nivel gratuito comparte capacidad con todo el mundo - un 503 "high
 # demand" es un contratiempo esperado, no un fallo real (confirmado en
