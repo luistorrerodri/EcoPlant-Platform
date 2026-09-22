@@ -1,4 +1,5 @@
 import base64
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +25,7 @@ MAX_INTENTOS = 3
 ESPERA_ENTRE_INTENTOS_S = 5
 
 _client = groq.Groq(api_key=settings.groq_api_key)
+logger = logging.getLogger("ecoplant.plant_vision")
 
 VERDICTS = {"bien", "revisar", "preocupante"}
 
@@ -102,13 +104,19 @@ def diagnose_plant(
     aqui no se guarda nada a medias."""
 
     contexto = _resumen_sensores(device, db)
+    logger.info("Contexto de sensores para %s: %s", device.device_id, contexto.replace("\n", " | "))
 
     instrucciones = (
         "Eres un asistente que valora la salud de una planta de interior/exterior a partir de "
-        "una foto y datos de sus sensores de suelo y ambiente. Responde SIEMPRE en este formato "
-        "exacto, en español:\n"
+        "una foto y datos de sus sensores de suelo y ambiente. Usa SIEMPRE los dos: no te limites "
+        "a describir lo que ves en la foto - compara explícitamente lo que ves con lo que dicen los "
+        "datos de los sensores (más abajo), y si hay una contradicción entre ambos (por ejemplo, la "
+        "foto parece sana pero el suelo lleva días fuera del rango objetivo de esta planta, o al "
+        "revés) dilo claramente, aunque el aspecto visual sea bueno. Responde SIEMPRE en este "
+        "formato exacto, en español:\n"
         "- Primera línea: una única palabra, exactamente una de estas tres: bien, revisar, preocupante.\n"
-        "- Resto: 2-4 frases explicando el porqué, en tono cercano, sin tecnicismos innecesarios.\n"
+        "- Resto: 2-4 frases explicando el porqué, mencionando tanto lo que ves en la foto como si "
+        "coincide o no con los datos de los sensores, en tono cercano, sin tecnicismos innecesarios.\n"
     )
     if previous_photo is not None:
         instrucciones += (
@@ -116,6 +124,8 @@ def diagnose_plant(
             "evolución (mejor, igual o peor) y ténlo en cuenta en el veredicto, además del estado "
             "actual en sí.\n"
         )
+    instrucciones += f"\nDatos de los sensores:\n{contexto}"
+
     # El formato "chat.completions" de Groq/OpenAI mete texto e imagenes
     # como bloques dentro de un unico mensaje de usuario - maximo 3
     # imagenes por peticion (limite documentado de Groq), aqui como mucho
