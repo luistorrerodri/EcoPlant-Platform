@@ -1,8 +1,8 @@
+import base64
 import time
 from datetime import datetime, timedelta, timezone
 
-from google import genai
-from google.genai import errors, types
+import groq
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -11,21 +11,19 @@ from app.models.watering_event import WateringEvent
 from app.services import influx_client
 
 WINDOW_HOURS = 120  # 5 dias, mismo contexto que pidio Luis
-MODEL = "gemini-3.5-flash-lite"  # confirmado en produccion: el alias "gemini-flash-latest" (el modelo
-# insignia mas nuevo, al que apunta todo el mundo por defecto en el nivel gratuito) estaba saturado de
-# forma sostenida (5 intentos repartidos en 15 minutos, todos 503). Un modelo "lite" concreto, mas barato
-# de servir y con menos gente apuntandole por nombre, tiene mucha mas capacidad libre - de sobra para
-# valorar una foto, no hace falta el modelo mas potente para esto.
+MODEL = "qwen/qwen3.8-27b"  # unico modelo con vision de Groq ahora mismo
 
-# El nivel gratuito comparte capacidad con todo el mundo - un 503 "high
-# demand" es un contratiempo esperado, no un fallo real (confirmado en
-# produccion: dos intentos seguidos con el mismo 503). Reintentar unas
-# pocas veces con espera absorbe eso sin que el usuario tenga que
-# volver a pulsar el boton el mismo a mano.
+# Tercer proveedor probado: Claude (de pago, funcionaba pero costaba)
+# y despues Gemini (nivel "gratuito" que en la practica estaba topado
+# de verdad para la cuenta de Luis - "Upgrade to unlock more" en AI
+# Studio, no un pico de demanda como parecia al principio). Groq tiene
+# un plan gratuito real y publicado (limites por dia/minuto, no un
+# trial que caduca), sin tarjeta, y es una cuenta distinta de Google -
+# no arrastra el uso previo que topo al otro proveedor.
 MAX_INTENTOS = 3
 ESPERA_ENTRE_INTENTOS_S = 5
 
-_client = genai.Client(api_key=settings.gemini_api_key)
+_client = groq.Groq(api_key=settings.groq_api_key)
 
 VERDICTS = {"bien", "revisar", "preocupante"}
 
@@ -80,8 +78,16 @@ def _parse_respuesta(texto: str) -> tuple[str, str]:
     primera_linea, _, resto = texto.strip().partition("\n")
     verdict = primera_linea.strip().lower().strip(".:,;")
     if verdict not in VERDICTS:
-        raise ValueError(f"Respuesta de Gemini sin veredicto reconocible: {texto[:200]!r}")
+        raise ValueError(f"Respuesta del modelo sin veredicto reconocible: {texto[:200]!r}")
     return verdict, resto.strip()
+
+
+def _image_part(data: bytes, mime_type: str) -> dict:
+    # Groq usa el mismo formato "image_url" con data URI que la API de
+    # OpenAI (su SDK sigue esa convencion) - no hay un tipo "image" con
+    # bytes en crudo como tenia el SDK de Gemini.
+    encoded = base64.b64encode(data).decode("ascii")
+    return {"type": "image_url", "image_url": {"url": f"data:{mime_type};base64,{encoded}"}}
 
 
 def diagnose_plant(
@@ -110,33 +116,36 @@ def diagnose_plant(
             "evolución (mejor, igual o peor) y ténlo en cuenta en el veredicto, además del estado "
             "actual en sí.\n"
         )
-    instrucciones += f"\nDatos de los sensores:\n{contexto}"
-
-    # contents mezcla texto y objetos Part (imagen) en la misma lista - asi
-    # espera el SDK de google-genai las peticiones multimodales, ver
-    # types.Part.from_bytes en la doc del SDK (googleapis/python-genai).
-    contents: list = []
+    # El formato "chat.completions" de Groq/OpenAI mete texto e imagenes
+    # como bloques dentro de un unico mensaje de usuario - maximo 3
+    # imagenes por peticion (limite documentado de Groq), aqui como mucho
+    # se mandan 2 (anterior + actual).
+    content: list[dict] = [{"type": "text", "text": instrucciones}]
     if previous_photo is not None:
         prev_bytes, prev_content_type = previous_photo
-        contents.append("Foto anterior:")
-        contents.append(types.Part.from_bytes(data=prev_bytes, mime_type=prev_content_type))
-        contents.append("Foto actual:")
-    contents.append(types.Part.from_bytes(data=photo_bytes, mime_type=content_type))
-    contents.append(instrucciones)
+        content.append({"type": "text", "text": "Foto anterior:"})
+        content.append(_image_part(prev_bytes, prev_content_type))
+        content.append({"type": "text", "text": "Foto actual:"})
+    content.append(_image_part(photo_bytes, content_type))
 
-    response = _generate_with_retries(contents)
-    return _parse_respuesta(response.text)
+    respuesta = _generate_with_retries(content)
+    return _parse_respuesta(respuesta)
 
 
-def _generate_with_retries(contents: list):
-    ultimo_error: errors.ServerError | None = None
+def _generate_with_retries(content: list[dict]) -> str:
+    ultimo_error: Exception | None = None
     for intento in range(1, MAX_INTENTOS + 1):
         try:
-            return _client.models.generate_content(model=MODEL, contents=contents)
-        except errors.ServerError as err:
-            # Solo se reintenta un fallo del SERVIDOR de Gemini (sobrecarga,
-            # 503...) - un ClientError (clave invalida, peticion mal
-            # formada) no se arregla reintentando, se deja subir tal cual.
+            completion = _client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": content}],
+                max_completion_tokens=400,
+            )
+            return completion.choices[0].message.content
+        except (groq.InternalServerError, groq.RateLimitError) as err:
+            # Solo se reintenta un fallo del SERVIDOR o de limite de tasa
+            # (ambos transitorios) - un error de cliente (clave invalida,
+            # peticion mal formada) no se arregla reintentando, sube tal cual.
             ultimo_error = err
             if intento < MAX_INTENTOS:
                 time.sleep(ESPERA_ENTRE_INTENTOS_S)

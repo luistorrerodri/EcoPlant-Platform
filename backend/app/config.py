@@ -29,12 +29,10 @@ class Settings(BaseSettings):
 
     # Diagnostico visual con IA (foto + sensores) - unico punto del
     # proyecto donde contenido real sale hacia un servicio de terceros.
-    # Gemini (nivel gratuito) en vez de Claude: coste cero para el uso a
-    # demanda que le da Luis. Nota consciente: en el nivel gratuito,
-    # Google puede usar el contenido enviado (las fotos) para mejorar
-    # sus productos - aceptado a proposito por ser fotos de una planta,
-    # no datos sensibles. Ver docs/architecture.md.
-    gemini_api_key: str
+    # Groq (nivel gratuito real, sin tarjeta) - probado antes con Claude
+    # (de pago) y Gemini (su "gratis" resulto topado de verdad para la
+    # cuenta de Luis). Ver docs/architecture.md para el porque completo.
+    groq_api_key: str
 
 
 settings = Settings()

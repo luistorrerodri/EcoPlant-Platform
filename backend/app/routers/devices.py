@@ -226,8 +226,8 @@ def submit_photo_diagnosis(
     # Lectura sincrona (photo.file, no el metodo async .read()) a
     # proposito: este endpoint ya no es async def, FastAPI lo ejecuta en
     # un hilo aparte para no bloquear el unico worker de Uvicorn durante
-    # los reintentos de la llamada a Gemini (hasta ~10-15s en el peor
-    # caso) - ver plant_vision._generate_with_retries.
+    # los reintentos de la llamada al modelo de IA (hasta ~10-15s en el
+    # peor caso) - ver plant_vision._generate_with_retries.
     photo_bytes = photo.file.read()
     if len(photo_bytes) > MAX_PHOTO_BYTES:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La foto pesa demasiado (máximo 8 MB).")

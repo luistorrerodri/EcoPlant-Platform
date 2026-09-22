@@ -423,3 +423,15 @@ sudo systemctl restart caddy
 **Solución**: añadir `humedad_suelo_raw` al objeto que construye el nodo de Node-RED.
 
 **Aprendizaje**: en un pipeline con una transformación intermedia explícita (aquí, un nodo que reconstruye el mensaje campo a campo en vez de reenviarlo tal cual), añadir un campo en el origen no basta por sí solo — hay que revisar cada punto del camino que filtra o reconstruye el payload. Un campo nuevo en el firmware no llega solo a la base de datos.
+
+---
+
+## 27. El nivel "gratuito" de Gemini no era gratuito de verdad para la cuenta usada
+
+**Síntoma**: al integrar el diagnóstico visual con la API de Gemini (elegida sobre Claude precisamente por tener nivel gratuito), las peticiones fallaban de forma consistente con `503 UNAVAILABLE`, mensaje `"This model is currently experiencing high demand"` — cinco intentos repartidos en 15 minutos, todos con el mismo error, contra dos modelos distintos (`gemini-flash-latest` y después `gemini-3.5-flash-lite`, probado como alternativa menos cargada).
+
+**Diagnóstico**: que el mismo error apareciera de forma idéntica en dos modelos diferentes, de forma sostenida durante 15 minutos, hacía poco creíble que fuera solo un pico de demanda puntual del servicio — un pico real suele ser intermitente, no un fallo del 100% de las peticiones. Para aislar si era un problema del servicio de Google en general o algo específico de la cuenta, se probó exactamente la misma foto directamente en Google AI Studio (mismo login, sin pasar por la API ni por nuestro código) — y ahí apareció un diálogo `"Upgrade to unlock more"` pidiendo activar facturación. Eso confirmó que el nivel gratuito estaba topado de verdad para esa cuenta concreta (reutilizada, con uso previo a este proyecto), no que Google estuviera caído.
+
+**Solución**: cambio a Groq (`app/services/plant_vision.py`), que sí tiene un plan gratuito real y publicado (límites de peticiones por día/minuto documentados, no un trial que caduca ni una cuota ya agotada por otro uso), en una cuenta nueva y distinta de Google.
+
+**Aprendizaje**: un error 503 "alta demanda" que se repite de forma idéntica en el 100% de los intentos, durante minutos y contra más de un modelo, es una señal de que probablemente no es demanda — es un límite de cuenta disfrazado de mensaje de capacidad. La forma más rápida de distinguir "el servicio está saturado" de "mi cuenta ha tocado un límite" es reproducir la misma petición fuera del propio código, directamente en la consola oficial del proveedor con la misma cuenta — si falla igual ahí, no es el código. Y en general: un "nivel gratuito" solo se puede dar por bueno probándolo de verdad con la cuenta real que se va a usar, nunca solo confiando en lo que promete la documentación — "gratis" puede significar cosas muy distintas según el proveedor y el historial previo de esa cuenta concreta.
