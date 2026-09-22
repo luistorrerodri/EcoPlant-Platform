@@ -1,7 +1,8 @@
+import time
 from datetime import datetime, timedelta, timezone
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -11,6 +12,14 @@ from app.services import influx_client
 
 WINDOW_HOURS = 120  # 5 dias, mismo contexto que pidio Luis
 MODEL = "gemini-flash-latest"  # alias que Google mantiene apuntando al Flash mas reciente - nivel gratuito
+
+# El nivel gratuito comparte capacidad con todo el mundo - un 503 "high
+# demand" es un contratiempo esperado, no un fallo real (confirmado en
+# produccion: dos intentos seguidos con el mismo 503). Reintentar unas
+# pocas veces con espera absorbe eso sin que el usuario tenga que
+# volver a pulsar el boton el mismo a mano.
+MAX_INTENTOS = 3
+ESPERA_ENTRE_INTENTOS_S = 5
 
 _client = genai.Client(api_key=settings.gemini_api_key)
 
@@ -111,5 +120,20 @@ def diagnose_plant(
     contents.append(types.Part.from_bytes(data=photo_bytes, mime_type=content_type))
     contents.append(instrucciones)
 
-    response = _client.models.generate_content(model=MODEL, contents=contents)
+    response = _generate_with_retries(contents)
     return _parse_respuesta(response.text)
+
+
+def _generate_with_retries(contents: list):
+    ultimo_error: errors.ServerError | None = None
+    for intento in range(1, MAX_INTENTOS + 1):
+        try:
+            return _client.models.generate_content(model=MODEL, contents=contents)
+        except errors.ServerError as err:
+            # Solo se reintenta un fallo del SERVIDOR de Gemini (sobrecarga,
+            # 503...) - un ClientError (clave invalida, peticion mal
+            # formada) no se arregla reintentando, se deja subir tal cual.
+            ultimo_error = err
+            if intento < MAX_INTENTOS:
+                time.sleep(ESPERA_ENTRE_INTENTOS_S)
+    raise ultimo_error
