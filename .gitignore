@@ -8,3 +8,9 @@ backend/.env
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
+
+# Structure (diseño 3D del macetero) - los STL se regeneran localmente
+# con `python3 build.py`, no se versionan por tamaño (~240 MB en total)
+structure/__pycache__/
+structure/stl/
+structure/cache_*.npy
