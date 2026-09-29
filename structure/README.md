@@ -8,14 +8,14 @@ Diseño paramétrico generado con un motor propio en Python/numpy (sin CAD exter
 
 **El depósito no tiene ni un solo orificio por debajo del nivel máximo de agua.**
 
-En impresión FDM las capas filtran, así que en lugar de intentar sellar mejor los pasos, se han eliminado. Todo entra y sale del depósito por arriba: el llenado por la torre, el tubo de aspiración por una ranura en la cara inferior de la tapa, y los cables por el anillo técnico seco. La única junta del conjunto está 9 mm por encima del nivel máximo y solo controla evaporación, no presión.
+En impresión FDM las capas filtran, así que en lugar de intentar sellar mejor los pasos, se han eliminado. Todo entra y sale del depósito por arriba: el llenado por la torre, el tubo de impulsión de la bomba y su cable de alimentación por sendas ranuras en la cara inferior de la tapa, y el resto de cables por el anillo técnico seco. La única junta del conjunto está 9 mm por encima del nivel máximo y solo controla evaporación, no presión.
 
 ## Las 7 piezas
 
 | # | Pieza | Material | Cotas | Volumen | Orientación |
 |---|---|---|---|---|---|
 | 01 | cubeta_base | PETG | Ø240 × 70 | 473 cm³ | Suelo abajo |
-| 02 | tapa_superior | PETG | Ø232 × 12 | 249 cm³ | Plana, collar arriba |
+| 02 | tapa_superior | PETG | Ø232 × 12 | 248 cm³ | Plana, collar arriba |
 | 03 | maceta | PETG o PLA | Ø200 × 156 | 399 cm³ | Suelo abajo |
 | 04 | cesta | PETG | Ø188 × 133 | 197 cm³ | Fondo abajo |
 | 05 | tapon_llenado | PETG | Ø28 × 15 | 5 cm³ | Cabeza abajo |
@@ -52,7 +52,7 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 | Cant. | Componente | Nota |
 |---|---|---|
 | 1 | ESP32 DevKit | El que ya usa `macetero01` en producción — cabe de sobra en la bahía |
-| 1 | Bomba sumergible 5 V | La misma que ya usas. **Vive dentro del depósito, no en la bahía** — ver la nota más abajo |
+| 1 | Bomba sumergible 5 V | La misma que ya usas. **Vive suelta en el suelo del depósito**, cerca de (x=26, y=20) — su cable sale por el canal dedicado de la tapa hacia la bahía |
 | 1 | Driver MOSFET o relé | Para la bomba |
 | 1.5 m | Tubo de silicona 3 × 5 mm | Impulsión (la sumergible no necesita tubo de aspiración) |
 | 1 | Sensor de humedad capacitivo | **No** resistivo: los resistivos se corroen |
@@ -67,17 +67,15 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 
 > **Decisión (2026-09-29): se adapta el diseño a la electrónica actual**, no al revés. `macetero01` ya usa ESP32 DevKit + bomba sumergible en producción — este macetero nuevo reutiliza esos mismos componentes en vez de migrar a ESP32-C3. La bomba peristáltica queda como alternativa documentada, no descartada, por si la sumergible no rinde bien en este depósito.
 >
-> **Implicación real en el CAD, todavía pendiente de aplicar**: el modelo actual (`design.py`) da por hecho una bomba *peristáltica*, que vive seca en la bahía y solo mete un tubo de aspiración en el depósito desde arriba. Una bomba *sumergible* vive dentro del propio depósito, así que necesita: (1) espacio para el cuerpo de la bomba dentro del depósito (hay de sobra, el depósito mide Ø214×60mm por dentro), y (2) un camino para su cable de alimentación desde dentro del depósito hasta la bahía — sin romper la regla de "cero agujeros por debajo del nivel máximo de agua", el cable tiene que salir por arriba (por el mismo tipo de canal que ya usa el cable del LED en la tapa superior), no atravesar la pared del depósito por el lateral. Esto no está modelado todavía en `params.py`/`design.py`.
+> **Ya aplicado en el CAD.** El modelo asumía una bomba *peristáltica* seca en la bahía con un tubo de aspiración entrando al depósito desde arriba. Con la sumergible, la bomba vive suelta dentro del propio depósito (hay espacio de sobra, Ø214×60 mm por dentro — no hace falta ningún hueco nuevo para el cuerpo) y lo que cambia es el canal que antes llevaba el tubo de aspiración: ahora lleva su cable de alimentación desde el depósito hasta la bahía, por la cara inferior de la tapa superior (`box(20, 32, 20, 50, ...)` en `tapa_superior()`, ensanchado 2 mm de alto para que quepa un conector pequeño). Sigue sin romper la regla de "cero agujeros por debajo del nivel máximo de agua": el cable sale por arriba, igual que antes salía el tubo. Reverificado con `test.py` (41/41, 0 interferencias) tras el cambio.
 
 **Sobre el rendimiento de la peristáltica y la gravedad**: no sería el cuello de botella. Una peristáltica es de desplazamiento positivo — a diferencia de una sumergible centrífuga barata, su caudal no se desploma al bombear contra altura (aquí, unos 15–20 cm desde el agua hasta la tierra); de hecho suele sostener mejor esa altura que una centrífuga pequeña. Lo que sí es menor es el **caudal absoluto** (mL/min) — pero para riegos de 30–50 ml eso no es un problema real, como mucho tarda algunos segundos más por riego que la sumergible. Si algún día cambias de bomba, no sería por la gravedad.
 
 ## Montaje
 
-> Los pasos 1 y 2 describen todavía el montaje con bomba **peristáltica** (la que asumía el CAD original) — con la sumergible, la bomba va dentro del depósito y no hay tubo de aspiración. Se actualizan cuando se aplique el cambio de geometría de la nota de arriba.
-
-1. **Cubeta.** Pega el cordón de silicona en la garganta de la coronación del depósito. Mete la bomba, el ESP32 y el driver en la bahía trasera (con la tapa superior fuera la bahía está completamente abierta desde arriba: es el momento de cablear). La placa USB-C entra por la ventana trasera.
-2. **Tubos.** El de aspiración sale de la bomba, cruza por el canal de la cara inferior de la tapa que pasa sobre el tabique, y baja al depósito con un filtro de esponja en la punta. El de impulsión sube por el taladro del nervio.
-3. **Cables.** El del LED va desde la bahía por el canal largo de la cara inferior de la tapa hasta la torre, y sube por el conducto que queda al lado del tabique interior. El del sensor de humedad sube por el nervio, junto al tubo de impulsión. Las dos sondas de nivel cuelgan del canal, dentro del depósito.
+1. **Cubeta.** Pega el cordón de silicona en la garganta de la coronación del depósito. Coloca la bomba sumergible suelta en el suelo del depósito, cerca de (x=26, y=20), con su cable subiendo por el canal dedicado de la tapa. Mete el ESP32 y el driver en la bahía trasera (con la tapa superior fuera la bahía está completamente abierta desde arriba: es el momento de cablear). La placa USB-C entra por la ventana trasera.
+2. **Tubo de impulsión.** Sale de la bomba y sube por el taladro del nervio hasta la maceta — es el único tubo, la sumergible no necesita aspiración.
+3. **Cables.** El de la bomba sube desde el depósito por su canal dedicado (junto al de aspiración de antes) hasta la bahía. El del LED va desde la bahía por el canal largo de la cara inferior de la tapa hasta la torre, y sube por el conducto que queda al lado del tabique interior. El del sensor de humedad sube por el nervio, junto al tubo de impulsión. Las dos sondas de nivel cuelgan dentro del depósito.
 4. **Tapa superior.** Encájala en el alojamiento haciendo coincidir el chavetero con la chaveta del frente; así quedan alineados los canales. Los taladros de la torre y del nervio quedan mirando al frente y al dorso.
 5. **Maceta.** Baja la torre y el nervio por sus huecos del collar. Solo entra en una posición.
 6. **Cesta.** Apóyala en los tres tetones del fondo de la maceta. Echa 20 mm de arlita, pon la rejilla sobre la repisa, y encima la tierra.
@@ -97,7 +95,8 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 - **Embudo de llenado.** La boca es una D de 16 × 24 mm: cómoda con botella, justa con jarra.
 - **Nivel de agua.** Las dos sondas por conductividad dan un aviso de «poca agua», no una medida. Excitar en pulsos cortos o en alterna para no electrolizar.
 - **Sin roscas impresas.** El tapón es a presión y la tapa superior va libre. Es deliberado: menos puntos de fuga y nada que se agarrote.
-- **Geometría de la bomba sumergible.** Decidido usar la electrónica actual (ver la nota en la lista de materiales), pero el CAD todavía modela la bahía y el depósito para una bomba peristáltica — falta mover la bomba al interior del depósito y dar un camino de salida al cable de alimentación por arriba.
+
+Con la pantalla como único hueco por decidir, el resto del prototipo se puede dar por completo con los componentes reales que ya tienes.
 
 ## Cómo se ha hecho esto
 

@@ -33,7 +33,7 @@ CASOS = [
     ("tapa: paso del nervio",           plate, (0, 92, 66), 'void'),
     ("tapa: canal de cable LED",        plate, (0, -60, 65), 'void'),
     ("tapa: techo sobre el canal",      plate, (0, -60, 69), 'solid'),
-    ("tapa: canal tubo aspiracion",     plate, (26, 35, 65), 'void'),
+    ("tapa: canal cable bomba",         plate, (26, 35, 65), 'void'),
     ("maceta: espacio de tierra",       pot, (0, 0, 150), 'void'),
     ("maceta: pared",                   pot, (98.75, 0, 150), 'solid'),
     ("maceta: boca de llenado libre",   pot, (0, -92, 150), 'void'),

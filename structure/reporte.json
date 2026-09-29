@@ -15,13 +15,13 @@
    70.5
   ],
   "malla_mm": 0.75,
-  "seg": 4.5
+  "seg": 9.1
  },
  "02_tapa_superior": {
-  "tris": 683800,
-  "verts": 341898,
+  "tris": 680164,
+  "verts": 340078,
   "aristas_mal": 0,
-  "volumen_cm3": 249.3,
+  "volumen_cm3": 248.5,
   "bbox_min": [
    -116.0,
    -115.9,
@@ -33,7 +33,7 @@
    76.0
   ],
   "malla_mm": 0.55,
-  "seg": 2.0
+  "seg": 4.3
  },
  "03_maceta": {
   "tris": 1213628,
@@ -51,7 +51,7 @@
    224.0
   ],
   "malla_mm": 0.75,
-  "seg": 5.1
+  "seg": 11.6
  },
  "04_cesta": {
   "tris": 852476,
@@ -69,7 +69,7 @@
    210.0
   ],
   "malla_mm": 0.75,
-  "seg": 3.1
+  "seg": 6.3
  },
  "05_tapon_llenado": {
   "tris": 92476,
@@ -87,7 +87,7 @@
    7.0
   ],
   "malla_mm": 0.25,
-  "seg": 0.3
+  "seg": 0.4
  },
  "06_tapa_bahia": {
   "tris": 130948,
@@ -105,7 +105,7 @@
    2.0
   ],
   "malla_mm": 0.35,
-  "seg": 0.3
+  "seg": 0.5
  },
  "07_rejilla_drenaje": {
   "tris": 614064,
@@ -123,6 +123,6 @@
    2.5
   ],
   "malla_mm": 0.4,
-  "seg": 1.8
+  "seg": 5.6
  }
 }

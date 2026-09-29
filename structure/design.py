@@ -23,7 +23,15 @@ def screw_positions():
 
 # ------------------------------------------------------------- 1. cubeta base
 def cubeta_base():
-    """Deposito + bahia electronica + anillo tecnico seco + pared exterior."""
+    """Deposito + bahia electronica + anillo tecnico seco + pared exterior.
+
+    Bomba sumergible: va suelta en el suelo del deposito (no hay hueco de
+    montaje especifico, el fabricante no esta decidido todavia), cerca de
+    (x=26, y=20) para que su cable quede justo bajo el canal de salida
+    hacia la bahia en tapa_superior() - ver el comentario "cable bomba
+    sumergible" ahi. El tubo de impulsion sube por el taladro del nervio,
+    igual que antes.
+    """
     hueco = union(
         cyl(0, 0, R_RING_O, T_FLOOR, Z_RAMP0),                    # cavidad
         cone(0, 0, R_RING_O, R_LEDGE, Z_RAMP0, Z_LEDGE),          # rampa 45
@@ -68,7 +76,7 @@ def tapa_superior():
         cyl(0, -FEAT_R, TOWER_RO + 5.0, H_BASE - 1, H_BASE + COLLAR_H + 2),
         cyl(0, FEAT_R, NERVE_RO + 4.0, H_BASE - 1, H_BASE + COLLAR_H + 2),
         box(-6, 6, -100, 45, Z_WALL_TOP - 1, Z_WALL_TOP + 4),     # cable LED
-        box(20, 32, 20, 50, Z_WALL_TOP - 1, Z_WALL_TOP + 4),      # tubo aspiracion
+        box(20, 32, 20, 50, Z_WALL_TOP - 1, Z_WALL_TOP + 6),      # cable bomba sumergible (sale del deposito hacia la bahia)
         box(-KEY_W / 2 - 0.5, KEY_W / 2 + 0.5, -118, -112.8,
             Z_WALL_TOP - 1, H_BASE + 1),                          # chavetero
         tube(0, 0, R_TANK_I + 0.5, R_TANK_O - 0.5,
