@@ -51,10 +51,10 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 
 | Cant. | Componente | Nota |
 |---|---|---|
-| 1 | ESP32-C3 (Seeed XIAO, 21 × 17 mm) | Wi-Fi, cabe de sobra en la bahía |
-| 1 | Bomba peristáltica 5 V | **Va en seco, dentro de la bahía.** Dosifica en ml |
-| 1 | Driver MOSFET o L9110 | Para la bomba |
-| 1.5 m | Tubo de silicona 3 × 5 mm | Aspiración e impulsión |
+| 1 | ESP32 DevKit | El que ya usa `macetero01` en producción — cabe de sobra en la bahía |
+| 1 | Bomba sumergible 5 V | La misma que ya usas. **Vive dentro del depósito, no en la bahía** — ver la nota más abajo |
+| 1 | Driver MOSFET o relé | Para la bomba |
+| 1.5 m | Tubo de silicona 3 × 5 mm | Impulsión (la sumergible no necesita tubo de aspiración) |
 | 1 | Sensor de humedad capacitivo | **No** resistivo: los resistivos se corroen |
 | 1 | AHT20 o DHT22 | Opcional, temperatura y humedad ambiente |
 | 1 | LED difuso 5 mm RGB | Entra a presión en el taladro de la brida |
@@ -65,11 +65,15 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 | 0.3 L | Arlita (arcilla expandida) | Cámara de aireación |
 | 4 | Fieltros adhesivos | Bajo la base |
 
-**Por qué bomba peristáltica y no sumergible:** se queda en seco dentro de la bahía, se cambia por la tapa inferior sin vaciar el depósito, no mete electrónica en el agua y dosifica por vueltas del motor — que es justo lo que hace falta para riegos de 30–50 ml.
+> **Decisión (2026-09-29): se adapta el diseño a la electrónica actual**, no al revés. `macetero01` ya usa ESP32 DevKit + bomba sumergible en producción — este macetero nuevo reutiliza esos mismos componentes en vez de migrar a ESP32-C3. La bomba peristáltica queda como alternativa documentada, no descartada, por si la sumergible no rinde bien en este depósito.
+>
+> **Implicación real en el CAD, todavía pendiente de aplicar**: el modelo actual (`design.py`) da por hecho una bomba *peristáltica*, que vive seca en la bahía y solo mete un tubo de aspiración en el depósito desde arriba. Una bomba *sumergible* vive dentro del propio depósito, así que necesita: (1) espacio para el cuerpo de la bomba dentro del depósito (hay de sobra, el depósito mide Ø214×60mm por dentro), y (2) un camino para su cable de alimentación desde dentro del depósito hasta la bahía — sin romper la regla de "cero agujeros por debajo del nivel máximo de agua", el cable tiene que salir por arriba (por el mismo tipo de canal que ya usa el cable del LED en la tapa superior), no atravesar la pared del depósito por el lateral. Esto no está modelado todavía en `params.py`/`design.py`.
 
-> **Nota de compatibilidad**: esta lista de materiales (ESP32-C3, bomba peristáltica) es distinta de la electrónica que corre hoy en producción en `macetero01` (ESP32 DevKit, bomba sumergible — ver [`../docs/hardware.md`](../docs/hardware.md)). Este diseño está pensado para una revisión de hardware ("v2") que todavía no existe en `firmware/`. Migrar el firmware actual a ESP32-C3 no es automático (cambia la familia de chip, de Xtensa dual-core a RISC-V), así que antes de imprimir merece la pena confirmar si el plan es migrar la electrónica a la vez que el macetero, o adaptar este diseño a la electrónica actual.
+**Sobre el rendimiento de la peristáltica y la gravedad**: no sería el cuello de botella. Una peristáltica es de desplazamiento positivo — a diferencia de una sumergible centrífuga barata, su caudal no se desploma al bombear contra altura (aquí, unos 15–20 cm desde el agua hasta la tierra); de hecho suele sostener mejor esa altura que una centrífuga pequeña. Lo que sí es menor es el **caudal absoluto** (mL/min) — pero para riegos de 30–50 ml eso no es un problema real, como mucho tarda algunos segundos más por riego que la sumergible. Si algún día cambias de bomba, no sería por la gravedad.
 
 ## Montaje
+
+> Los pasos 1 y 2 describen todavía el montaje con bomba **peristáltica** (la que asumía el CAD original) — con la sumergible, la bomba va dentro del depósito y no hay tubo de aspiración. Se actualizan cuando se aplique el cambio de geometría de la nota de arriba.
 
 1. **Cubeta.** Pega el cordón de silicona en la garganta de la coronación del depósito. Mete la bomba, el ESP32 y el driver en la bahía trasera (con la tapa superior fuera la bahía está completamente abierta desde arriba: es el momento de cablear). La placa USB-C entra por la ventana trasera.
 2. **Tubos.** El de aspiración sale de la bomba, cruza por el canal de la cara inferior de la tapa que pasa sobre el tabique, y baja al depósito con un filtro de esponja en la punta. El de impulsión sube por el taladro del nervio.
@@ -93,7 +97,7 @@ Menos ventilador y algo más de flujo sueldan mejor las capas: es lo que hace qu
 - **Embudo de llenado.** La boca es una D de 16 × 24 mm: cómoda con botella, justa con jarra.
 - **Nivel de agua.** Las dos sondas por conductividad dan un aviso de «poca agua», no una medida. Excitar en pulsos cortos o en alterna para no electrolizar.
 - **Sin roscas impresas.** El tapón es a presión y la tapa superior va libre. Es deliberado: menos puntos de fuga y nada que se agarrote.
-- **Compatibilidad de electrónica.** Ver la nota en la lista de materiales, arriba — el BOM asume ESP32-C3 + bomba peristáltica, distinto de lo que corre hoy en producción.
+- **Geometría de la bomba sumergible.** Decidido usar la electrónica actual (ver la nota en la lista de materiales), pero el CAD todavía modela la bahía y el depósito para una bomba peristáltica — falta mover la bomba al interior del depósito y dar un camino de salida al cable de alimentación por arriba.
 
 ## Cómo se ha hecho esto
 
