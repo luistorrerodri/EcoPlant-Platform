@@ -103,6 +103,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - [`backend/`](backend/) — API multiusuario (FastAPI + PostgreSQL): usuarios, ubicaciones, dispositivos
 - [`mobile/`](mobile/) — app móvil (React Native + Expo): consume la API del backend
 - [`docs/`](docs/) — arquitectura, hardware, troubleshooting y roadmap detallados
+- [`structure/`](structure/) — diseño CAD paramétrico del macetero físico (carcasa de impresión 3D), en Python/numpy; diseño verificado geométricamente pero aún sin imprimir
 
 ## Autor
 
