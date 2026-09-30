@@ -4,6 +4,8 @@
 
 Diseño paramétrico generado con un motor propio en Python/numpy (sin CAD externo) — ver [Cómo se ha hecho esto](#cómo-se-ha-hecho-esto). Verificado geométricamente (41 puntos de control, 0 interferencias entre piezas), pero **todavía no impreso ni validado físicamente** — antes de encargar el pedido, revisar [Lo que queda pendiente](#lo-que-queda-pendiente).
 
+Renders reales del modelo en [`preview/`](preview/) y en la ficha técnica autocontenida [`ficha_tecnica.html`](ficha_tecnica.html). [`concepto_visual.jpg`](concepto_visual.jpg) es distinto: una **visualización conceptual generada por IA** (no una foto real ni un render del CAD) para transmitir de un vistazo cómo quedaría el producto acabado en un entorno doméstico — útil para explicar la idea, pero no representa fielmente la geometría (por ejemplo, no muestra el saliente de la torre de llenado) ni confirma que la pantalla que aparece tenga hueco real todavía.
+
 ## La regla que ordena todo el diseño
 
 **El depósito no tiene ni un solo orificio por debajo del nivel máximo de agua.**
