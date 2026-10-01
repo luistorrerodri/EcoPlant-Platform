@@ -23,9 +23,13 @@ import type { DeviceEnvironment, PlantTypeCategory, PlantTypeOut } from "../type
 
 const CATEGORY_LABELS: Record<PlantTypeCategory, string> = {
   planta: "🌱 Plantas",
+  hoja_grande: "🍃 Hoja grande",
+  colgante: "🪴 Colgantes y trepadoras",
+  crasa: "🌵 Crasas y cactus",
+  palmera: "🌴 Palmeras",
   arbol: "🌳 Árboles",
 };
-const CATEGORY_ORDER: PlantTypeCategory[] = ["planta", "arbol"];
+const CATEGORY_ORDER: PlantTypeCategory[] = ["planta", "hoja_grande", "colgante", "crasa", "palmera", "arbol"];
 
 type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceConfig">;
 

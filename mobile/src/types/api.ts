@@ -44,7 +44,7 @@ export interface DeviceOut {
   created_at: string;
 }
 
-export type PlantTypeCategory = "planta" | "arbol";
+export type PlantTypeCategory = "planta" | "hoja_grande" | "colgante" | "crasa" | "palmera" | "arbol";
 
 export interface PlantTypeOut {
   id: string;
