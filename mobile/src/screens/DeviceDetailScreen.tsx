@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import * as devicesApi from "../api/devices";
 import { ApiError } from "../api/client";
@@ -17,6 +17,10 @@ const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
   suelo: ["humedad_suelo", "temp_suelo"],
   ambiente: ["temp_aire", "presion"],
 };
+
+function formatHumedad(value: number | null): string {
+  return value != null ? `${value.toFixed(0)}%` : "—";
+}
 
 function latestValue(points: ReadingPoint[], field: ReadingPoint["field"]): number | null {
   const fieldPoints = points.filter((p) => p.field === field);
@@ -56,12 +60,40 @@ const TIME_RANGES: { label: string; hours: number }[] = [
 
 export default function DeviceDetailScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
+  const queryClient = useQueryClient();
   const [selectedCategory, setSelectedCategory] = useState<Category>("suelo");
   const [selectedHours, setSelectedHours] = useState(24);
 
   const deviceQuery = useQuery({
     queryKey: ["device", deviceId],
     queryFn: () => devicesApi.getDevice(deviceId),
+    // Corto para que el aviso de "sensor pausado" desaparezca solo en
+    // cuanto expira (autoexpira por timestamp en el backend, ver
+    // pause-sensor/resume-sensor), sin que haga falta reabrir la pantalla.
+    refetchInterval: 15_000,
+  });
+
+  const pausadoHasta = deviceQuery.data?.sensor_pausado_hasta
+    ? new Date(deviceQuery.data.sensor_pausado_hasta)
+    : null;
+  const sensorPausado = pausadoHasta != null && pausadoHasta.getTime() > Date.now();
+
+  const pauseMutation = useMutation({
+    mutationFn: () => devicesApi.pauseSensor(deviceId),
+    onSuccess: (data) => queryClient.setQueryData(["device", deviceId], data),
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.detail : "No se pudo pausar el sensor";
+      Alert.alert("Error", message);
+    },
+  });
+
+  const resumeMutation = useMutation({
+    mutationFn: () => devicesApi.resumeSensor(deviceId),
+    onSuccess: (data) => queryClient.setQueryData(["device", deviceId], data),
+    onError: (err) => {
+      const message = err instanceof ApiError ? err.detail : "No se pudo reanudar el sensor";
+      Alert.alert("Error", message);
+    },
   });
 
   const readingsQuery = useQuery({
@@ -94,6 +126,42 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       <Text style={styles.estado}>
         Estado: {ESTADO_LABELS[readingsQuery.data?.latest_estado ?? ""] ?? "—"}
       </Text>
+
+      {sensorPausado ? (
+        <View style={styles.pauseBanner}>
+          <Text style={styles.pauseBannerTitle}>
+            ⏸️ Sensor pausado — humedad ahora: {formatHumedad(latestValue(points, "humedad_suelo"))}
+          </Text>
+          <Text style={styles.pauseBannerSubtitle}>
+            El riego automático no se activará hasta las{" "}
+            {pausadoHasta?.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}. Mueve el
+            sensor o la planta con calma.
+          </Text>
+          <Pressable
+            style={[styles.resumeButton, resumeMutation.isPending && styles.buttonDisabled]}
+            disabled={resumeMutation.isPending}
+            onPress={() => resumeMutation.mutate()}
+          >
+            {resumeMutation.isPending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.resumeButtonText}>✅ Ya está, reanudar</Text>
+            )}
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={[styles.pauseButton, pauseMutation.isPending && styles.buttonDisabled]}
+          disabled={pauseMutation.isPending}
+          onPress={() => pauseMutation.mutate()}
+        >
+          {pauseMutation.isPending ? (
+            <ActivityIndicator color="#1565c0" />
+          ) : (
+            <Text style={styles.pauseButtonText}>⏸️ Pausar sensor (10 min) para moverlo</Text>
+          )}
+        </Pressable>
+      )}
 
       <View style={styles.summaryRow}>
         {summaryItems.map((item) => (
@@ -185,6 +253,32 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.5 },
   waterButtonText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  pauseButton: {
+    borderWidth: 1,
+    borderColor: "#1565c0",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  pauseButtonText: { color: "#1565c0", fontSize: 15, fontWeight: "600" },
+  pauseBanner: {
+    backgroundColor: "#fff8e1",
+    borderWidth: 1,
+    borderColor: "#f9a825",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+  },
+  pauseBannerTitle: { fontSize: 16, fontWeight: "700", color: "#7a5c00", marginBottom: 4 },
+  pauseBannerSubtitle: { fontSize: 13, color: "#8a6d00", lineHeight: 18, marginBottom: 10 },
+  resumeButton: {
+    backgroundColor: "#f9a825",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+  },
+  resumeButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   configButton: {
     borderWidth: 1,
     borderColor: "#2e7d32",

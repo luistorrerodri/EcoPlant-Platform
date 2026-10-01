@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Modal,
   Pressable,
   ScrollView,
+  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -19,7 +19,13 @@ import * as devicesApi from "../api/devices";
 import * as plantTypesApi from "../api/plantTypes";
 import { ApiError } from "../api/client";
 import type { LocationsStackParamList } from "../navigation/LocationsStack";
-import type { DeviceEnvironment, PlantTypeOut } from "../types/api";
+import type { DeviceEnvironment, PlantTypeCategory, PlantTypeOut } from "../types/api";
+
+const CATEGORY_LABELS: Record<PlantTypeCategory, string> = {
+  planta: "🌱 Plantas",
+  arbol: "🌳 Árboles",
+};
+const CATEGORY_ORDER: PlantTypeCategory[] = ["planta", "arbol"];
 
 type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceConfig">;
 
@@ -36,6 +42,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   const [humedadMax, setHumedadMax] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [horaFin, setHoraFin] = useState("");
+  const [duracionRiegoS, setDuracionRiegoS] = useState("");
   const [environment, setEnvironment] = useState<DeviceEnvironment | null>(null);
 
   const deviceQuery = useQuery({
@@ -56,6 +63,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     setHumedadMax(String(deviceQuery.data.humedad_max));
     setHoraInicio(String(deviceQuery.data.hora_inicio));
     setHoraFin(String(deviceQuery.data.hora_fin));
+    setDuracionRiegoS(String(Math.round(deviceQuery.data.duracion_riego_ms / 1000)));
     setEnvironment(deviceQuery.data.environment);
     setIsInitialized(true);
   }, [isInitialized, deviceQuery.data]);
@@ -68,8 +76,14 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     setHumedadMax(String(plantType.default_humedad_max));
     setHoraInicio(String(plantType.default_hora_inicio));
     setHoraFin(String(plantType.default_hora_fin));
+    setDuracionRiegoS(String(Math.round(plantType.default_duracion_riego_ms / 1000)));
     setPickerOpen(false);
   }
+
+  const plantTypeSections = CATEGORY_ORDER.map((category) => ({
+    title: CATEGORY_LABELS[category],
+    data: (plantTypesQuery.data ?? []).filter((p) => p.category === category),
+  })).filter((section) => section.data.length > 0);
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -80,6 +94,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
         humedad_max: Number(humedadMax),
         hora_inicio: Number(horaInicio),
         hora_fin: Number(horaFin),
+        duracion_riego_ms: Number(duracionRiegoS) * 1000,
         ...(environment ? { environment } : {}),
       }),
     onSuccess: () => {
@@ -103,6 +118,11 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     }
     if (!Number.isInteger(inicio) || inicio < 0 || inicio > 23 || !Number.isInteger(fin) || fin < 0 || fin > 23) {
       Alert.alert("Valor inválido", "Las horas deben ser números entre 0 y 23.");
+      return;
+    }
+    const duracion = Number(duracionRiegoS);
+    if (!Number.isInteger(duracion) || duracion < 1 || duracion > 60) {
+      Alert.alert("Valor inválido", "La duración del riego debe ser un número entre 1 y 60 segundos.");
       return;
     }
     saveMutation.mutate();
@@ -158,6 +178,15 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
       <Text style={styles.label}>Hora de fin del riego permitido</Text>
       <TextInput style={styles.input} value={horaFin} onChangeText={setHoraFin} keyboardType="numeric" maxLength={2} />
 
+      <Text style={styles.label}>Duración de cada riego (segundos)</Text>
+      <TextInput
+        style={styles.input}
+        value={duracionRiegoS}
+        onChangeText={setDuracionRiegoS}
+        keyboardType="numeric"
+        maxLength={2}
+      />
+
       <Pressable
         style={[styles.saveButton, saveMutation.isPending && styles.buttonDisabled]}
         disabled={saveMutation.isPending}
@@ -181,10 +210,13 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { paddingBottom: 20 + insets.bottom }]}>
             <Text style={styles.modalTitle}>Elegir tipo de planta</Text>
-            <FlatList
-              data={plantTypesQuery.data ?? []}
+            <SectionList
+              sections={plantTypeSections}
               keyExtractor={(item) => item.id}
               style={styles.modalList}
+              renderSectionHeader={({ section }) => (
+                <Text style={styles.sectionHeader}>{section.title}</Text>
+              )}
               renderItem={({ item }) => (
                 <Pressable style={styles.plantTypeRow} onPress={() => selectPlantType(item)}>
                   <Text style={styles.plantTypeRowText}>{item.name}</Text>
@@ -242,6 +274,14 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: "#fff", borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: "70%" },
   modalTitle: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
   modalList: { marginBottom: 12 },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#888",
+    backgroundColor: "#fff",
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   plantTypeRow: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#eee" },
   plantTypeRowText: { fontSize: 16 },
   cancel: { color: "#666", fontSize: 16, textAlign: "center", paddingVertical: 8 },

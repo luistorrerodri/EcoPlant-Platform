@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -31,6 +33,7 @@ def get_device_configs(db: Session = Depends(get_db)) -> dict[str, dict]:
             if d.location.latitude is not None and d.location.longitude is not None:
                 if weather_client.get_rain_forecast(d.location.latitude, d.location.longitude):
                     lluvia_prevista = True
+        sensor_pausado = d.sensor_pausado_hasta is not None and d.sensor_pausado_hasta > datetime.now(timezone.utc)
         result[d.device_id] = {
             "humedadMin": d.humedad_min,
             "humedadMax": d.humedad_max,
@@ -38,5 +41,6 @@ def get_device_configs(db: Session = Depends(get_db)) -> dict[str, dict]:
             "horaFin": d.hora_fin,
             "duracionRiegoMs": d.duracion_riego_ms,
             "lluviaPrevista": lluvia_prevista,
+            "sensorPausado": sensor_pausado,
         }
     return result

@@ -17,6 +17,10 @@ class PlantType(Base):
     slug: Mapped[str] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(100))
 
+    # Agrupa el selector de la app en un submenu ("Plantas" / "Arboles")
+    # cuando el catalogo crece - no afecta a ningun calculo de riego.
+    category: Mapped[str] = mapped_column(String(20), server_default="planta")
+
     # Valores por defecto que se copian a devices.* al elegir el tipo desde
     # la app - no se leen en caliente desde aqui en el ciclo de riego.
     default_humedad_min: Mapped[int] = mapped_column(Integer)

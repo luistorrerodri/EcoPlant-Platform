@@ -7,6 +7,7 @@ class PlantTypeOut(BaseModel):
     id: uuid.UUID
     slug: str
     name: str
+    category: str
     default_humedad_min: int
     default_humedad_max: int
     default_hora_inicio: int

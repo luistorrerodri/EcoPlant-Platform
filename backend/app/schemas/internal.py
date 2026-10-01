@@ -11,3 +11,4 @@ class DeviceConfigOut(BaseModel):
     horaFin: int
     duracionRiegoMs: int
     lluviaPrevista: bool
+    sensorPausado: bool

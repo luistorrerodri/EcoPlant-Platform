@@ -56,6 +56,13 @@ class Device(Base):
     soil_dry_raw: Mapped[int] = mapped_column(Integer, server_default="2482")
     soil_wet_raw: Mapped[int] = mapped_column(Integer, server_default="905")
 
+    # Pausa temporal del sensor (p.ej. al mover la planta/sensor): mientras
+    # NOW() < sensor_pausado_hasta, Node-RED no evalua riego automatico
+    # para este dispositivo (ver app/routers/internal.py). Autoexpira por
+    # timestamp, no hace falta ningun job - mismo patron "sin estado en
+    # servidor aparte" que ya usa el cache de lluviaPrevista.
+    sensor_pausado_hasta: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # Hash del codigo de reclamacion (bcrypt, igual que una contraseña).
     # Se pone a NULL en cuanto se reclama - de un solo uso. Para volver
     # a reclamar un dispositivo desenganchado hace falta que un admin

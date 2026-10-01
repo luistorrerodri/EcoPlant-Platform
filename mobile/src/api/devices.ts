@@ -35,6 +35,7 @@ export interface DeviceConfigUpdate {
   humedad_max?: number;
   hora_inicio?: number;
   hora_fin?: number;
+  duracion_riego_ms?: number;
   environment?: DeviceEnvironment;
 }
 
@@ -59,6 +60,14 @@ export function getHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
 
 export function refreshHealthSummary(deviceId: string): Promise<HealthSummaryOut> {
   return apiRequest<HealthSummaryOut>(`/api/devices/${deviceId}/health-summary/refresh`, { method: "POST" });
+}
+
+export function pauseSensor(deviceId: string): Promise<DeviceOut> {
+  return apiRequest<DeviceOut>(`/api/devices/${deviceId}/pause-sensor`, { method: "POST" });
+}
+
+export function resumeSensor(deviceId: string): Promise<DeviceOut> {
+  return apiRequest<DeviceOut>(`/api/devices/${deviceId}/resume-sensor`, { method: "POST" });
 }
 
 export function calibrateDevice(deviceId: string, punto: "seco" | "humedo"): Promise<DeviceOut> {

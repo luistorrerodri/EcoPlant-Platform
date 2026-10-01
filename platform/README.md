@@ -764,6 +764,36 @@ sudo systemctl restart ecoplant-backend
 
 Verificar por Swagger (`/api/docs`), sin necesitar la app: `POST /api/devices/macetero01/photo-diagnosis`, subiendo una foto real como `multipart/form-data`. Debe devolver `200` con un `verdict` (`bien`/`revisar`/`preocupante`) y un `message` que mencione tanto lo que se ve en la foto como si coincide con los datos de los sensores de los últimos 5 días. El contexto exacto que se le manda al modelo queda en el log (`journalctl -u ecoplant-backend`, buscar `"Contexto de sensores"`) por si hace falta verificarlo sin adivinar por el texto de la respuesta.
 
+### Duración de riego por tipo, pausa del sensor, y árboles en el catálogo
+
+Tres piezas pequeñas en el mismo lote (2026-10-01): `duracion_riego_ms` ahora se puede editar y se copia del tipo de planta elegido (antes existía en el catálogo pero nada la aplicaba — ver troubleshooting #31); pausa temporal del sensor (`sensor_pausado_hasta`, ver `docs/architecture.md` § "Pausa temporal del sensor"); y tres árboles nuevos en `plant_types` (aguacate, manzano, limonero) agrupados por una columna `category` nueva. Solo la pausa del sensor toca Node-RED — las otras dos son puramente aditivas.
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate && pip install -r requirements.txt
+alembic upgrade head
+sudo systemctl restart ecoplant-backend
+```
+
+**Node-RED (manual, en el editor — igual que el resto de cambios de `flows.json`):** en el nodo **"Decisión riego"**, añadir la lectura del nuevo campo y la condición de pausa, sin tocar nada más del cuerpo de la función:
+
+```javascript
+// justo despues de "let sinLluviaPrevista = !cfg.lluviaPrevista;"
+let sensorPausado = !!cfg.sensorPausado;
+
+// en el node.status({...}), sustituir el objeto completo por:
+node.status({
+    fill: sensorPausado ? "yellow" : (necesitaRiego ? "blue" : "grey"),
+    shape: "dot",
+    text: sensorPausado ? (deviceId + " PAUSADO") : (deviceId + " " + humedad + "% / " + cfg.humedadMin + "%")
+});
+
+// en el if final, añadir "&& !sensorPausado" al final de la condicion:
+if (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60 && sinLluviaPrevista && !sensorPausado) {
+```
+
+Deploy, y verificar: `POST /api/devices/macetero01/pause-sensor` por Swagger, luego mirar el panel de debug/estado del nodo "Decisión riego" — el punto de estado debe pasar a amarillo con el texto "PAUSADO" en el siguiente mensaje de sensores, y no debe dispararse ningún riego aunque la humedad esté por debajo del mínimo. `POST /api/devices/macetero01/resume-sensor` debe devolverlo a la normalidad al instante (sin esperar los 10 minutos de autoexpiración).
+
 ---
 
 ## Verificación del stack completo

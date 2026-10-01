@@ -106,6 +106,7 @@ Debe devolver `{"status":"ok"}`. Para probar el flujo completo, usa el Swagger (
 5. `GET /api/devices/{device_id}/readings` → histórico agregado desde InfluxDB
 6. `POST /api/devices/{device_id}/water` → publica el comando de riego por MQTT
 7. `POST /api/devices/{device_id}/photo-diagnosis` (subiendo una foto real como `multipart/form-data`) → valoración de un modelo con visión, cruzando la foto con el histórico de sensores
+8. `POST /api/devices/{device_id}/pause-sensor` → `sensor_pausado_hasta` 10 minutos en el futuro; `GET /api/internal/device-configs` debe reflejar `sensorPausado: true` para ese dispositivo hasta que expire o se llame a `POST /api/devices/{device_id}/resume-sensor`
 
 ## Notas
 

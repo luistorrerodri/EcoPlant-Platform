@@ -31,6 +31,7 @@ class DeviceUpdate(BaseModel):
     humedad_max: int | None = Field(default=None, ge=0, le=100)
     hora_inicio: int | None = Field(default=None, ge=0, le=23)
     hora_fin: int | None = Field(default=None, ge=0, le=23)
+    duracion_riego_ms: int | None = Field(default=None, ge=1000, le=60000)
     environment: Environment | None = None
 
 
@@ -47,6 +48,7 @@ class DeviceOut(BaseModel):
     environment: Environment | None
     soil_dry_raw: int
     soil_wet_raw: int
+    sensor_pausado_hasta: datetime | None
     claimed_at: datetime | None
     created_at: datetime
 

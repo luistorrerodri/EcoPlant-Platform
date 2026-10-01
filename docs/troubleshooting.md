@@ -471,3 +471,15 @@ sudo systemctl restart caddy
 **Solución**: sustituir el `partition` estricto por una expresión regular que busca la palabra de veredicto al principio del texto tolerando puntuación, guiones o saltos de línea indistintamente entre la palabra y el resto del mensaje (`^(bien|revisar|preocupante)\b[\s.:,;\-—–]*`). Verificado contra los formatos reales vistos en producción antes de desplegar.
 
 **Aprendizaje**: un LLM sigue instrucciones de formato de forma probabilística, no como un contrato — pedirle "responde así exactamente" reduce la probabilidad de que se salte el formato, pero no la elimina. El código que interpreta su respuesta tiene que ser tan tolerante como haga falta para aceptar cualquier variación razonable del formato pedido, no solo la más esperable; un analizador que solo acepta la forma exacta del ejemplo del prompt es, en la práctica, un analizador frágil.
+
+---
+
+## 31. La duración del riego nunca variaba por tipo de planta, pese a que el catálogo sí tenía un valor por tipo
+
+**Síntoma**: Luis observó un riego real "largo" en un cactus — contradictorio, ya que el catálogo de tipos de planta existe precisamente para evitar que todos los dispositivos rieguen igual.
+
+**Diagnóstico**: la columna `plant_types.default_duracion_riego_ms` existe desde el catálogo original (`suculenta-cactus` = 4000ms, frente a 9000ms del resto), y `devices.duracion_riego_ms` también — pero nada en la cadena end-to-end llegaba a aplicarla nunca. `DeviceConfigScreen.tsx`'s `selectPlantType()` copiaba humedad/horario al elegir un tipo, pero no la duración; y `PATCH /api/devices/{id}` ni siquiera aceptaba ese campo en su schema (`DeviceUpdate`) — así que, aunque la app lo hubiera mandado, el backend lo habría ignorado en silencio. Resultado: todo dispositivo quedaba fijo para siempre en el `server_default` de 9000ms de la migración original, sin importar qué tipo de planta se le asignara.
+
+**Solución**: añadir `duracion_riego_ms` a `DeviceUpdate` y a la rama de actualización de `PATCH /api/devices/{id}`, copiar el valor del tipo al elegirlo en el selector (igual que ya se hacía con humedad/horario), y exponer un campo editable en `DeviceConfigScreen.tsx`. No hizo falta migración — la columna ya existía, solo le faltaba un camino para llegar a ella.
+
+**Aprendizaje**: que una columna exista y tenga un valor por tipo sembrado en el catálogo no significa que el dato llegue a usarse — hay que trazar la cadena completa (UI → schema de entrada → router → modelo) para cada campo nuevo, no asumir que "está en la base de datos" implica "está conectado". Mismo tipo de gap que #22/#23 (umbral fijo que debía ser relativo al tipo de planta), pero esta vez en el extremo de escritura en vez del de lectura.

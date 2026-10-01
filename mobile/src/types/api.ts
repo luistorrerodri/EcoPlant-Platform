@@ -39,14 +39,18 @@ export interface DeviceOut {
   environment: DeviceEnvironment | null;
   soil_dry_raw: number;
   soil_wet_raw: number;
+  sensor_pausado_hasta: string | null;
   claimed_at: string | null;
   created_at: string;
 }
+
+export type PlantTypeCategory = "planta" | "arbol";
 
 export interface PlantTypeOut {
   id: string;
   slug: string;
   name: string;
+  category: PlantTypeCategory;
   default_humedad_min: number;
   default_humedad_max: number;
   default_hora_inicio: number;

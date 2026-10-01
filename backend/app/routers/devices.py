@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
@@ -21,6 +21,7 @@ from app.services import health_analysis, influx_client, mqtt_client, plant_visi
 
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
+SENSOR_PAUSE_MINUTES = 10
 
 logger = logging.getLogger("ecoplant.devices")
 
@@ -117,6 +118,8 @@ def update_device(
         device.hora_inicio = data.hora_inicio
     if data.hora_fin is not None:
         device.hora_fin = data.hora_fin
+    if data.duracion_riego_ms is not None:
+        device.duracion_riego_ms = data.duracion_riego_ms
     if data.environment is not None:
         device.environment = data.environment
     db.commit()
@@ -174,6 +177,33 @@ def calibrate_device(
     mqtt_client.publish_device_config(
         device_id, device.humedad_min, device.humedad_max, device.soil_dry_raw, device.soil_wet_raw
     )
+    return device
+
+
+@router.post("/{device_id}/pause-sensor", response_model=DeviceOut)
+def pause_sensor(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Device:
+    """Suspende el riego automatico unos minutos - para mover el sensor/la
+    planta sin que una lectura de 'seco' de transicion dispare un riego.
+    Duracion fija en servidor (no configurable por request): Node-RED la
+    respeta via GET /api/internal/device-configs, sin tocar el firmware -
+    el OLED del dispositivo ya muestra la humedad en vivo por su cuenta."""
+    device = _get_owned_device_or_404(device_id, user, db)
+    device.sensor_pausado_hasta = datetime.now(timezone.utc) + timedelta(minutes=SENSOR_PAUSE_MINUTES)
+    db.commit()
+    db.refresh(device)
+    return device
+
+
+@router.post("/{device_id}/resume-sensor", response_model=DeviceOut)
+def resume_sensor(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> Device:
+    device = _get_owned_device_or_404(device_id, user, db)
+    device.sensor_pausado_hasta = None
+    db.commit()
+    db.refresh(device)
     return device
 
 
