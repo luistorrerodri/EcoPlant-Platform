@@ -70,6 +70,13 @@ export interface ReadingsOut {
   points: ReadingPoint[];
 }
 
+export interface LatestReadingsOut {
+  humedad_suelo: number | null;
+  temp_suelo: number | null;
+  temp_aire: number | null;
+  presion: number | null;
+}
+
 export type HealthVerdict = "sana" | "revisar_riego" | "revisar_drenaje" | "datos_insuficientes";
 
 export interface HealthSummaryOut {

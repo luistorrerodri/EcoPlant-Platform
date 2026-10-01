@@ -22,12 +22,6 @@ function formatHumedad(value: number | null): string {
   return value != null ? `${value.toFixed(0)}%` : "—";
 }
 
-function latestValue(points: ReadingPoint[], field: ReadingPoint["field"]): number | null {
-  const fieldPoints = points.filter((p) => p.field === field);
-  if (fieldPoints.length === 0) return null;
-  return fieldPoints.reduce((latest, p) => (p.time > latest.time ? p : latest)).value;
-}
-
 const SUMMARY_BY_CATEGORY: Record<
   Category,
   { field: ReadingPoint["field"]; icon: string; decimals: number; unit: string }[]
@@ -99,17 +93,25 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
   const readingsQuery = useQuery({
     queryKey: ["readings", deviceId, selectedHours],
     queryFn: () => devicesApi.getReadings(deviceId, selectedHours),
-    // Mientras el sensor esta pausado (moviendo la sonda a mano) se
-    // refresca mucho mas rapido para que el % en el banner se note "en
-    // tiempo real" al reposicionarla - el resto del tiempo, 30s es de
-    // sobra (el ESP32 solo publica cada 4s de todas formas).
-    refetchInterval: sensorPausado ? 3_000 : 30_000,
+    refetchInterval: 30_000,
+  });
+
+  // /readings agrega a 1m/10m/1h segun el rango (ver influx_client.py) -
+  // de sobra para las graficas, pero "el ultimo punto" de ahi puede
+  // tardar hasta 10 minutos en reflejar un cambio real, lo cual se nota
+  // mucho mientras se mueve el sensor a mano. La fila-resumen y el
+  // banner de pausa usan en su lugar /latest-readings (sin agregar),
+  // refrescado mucho mas rapido mientras el sensor esta pausado.
+  const latestQuery = useQuery({
+    queryKey: ["latest-readings", deviceId],
+    queryFn: () => devicesApi.getLatestReadings(deviceId),
+    refetchInterval: sensorPausado ? 3_000 : 15_000,
   });
 
   const points = readingsQuery.data?.points ?? [];
   const summaryItems = SUMMARY_BY_CATEGORY[selectedCategory].map((item) => ({
     ...item,
-    value: latestValue(points, item.field),
+    value: latestQuery.data?.[item.field] ?? null,
   }));
 
   const waterMutation = useMutation({
@@ -134,7 +136,7 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       {sensorPausado ? (
         <View style={styles.pauseBanner}>
           <Text style={styles.pauseBannerTitle}>
-            ⏸️ Sensor pausado — humedad ahora: {formatHumedad(latestValue(points, "humedad_suelo"))}
+            ⏸️ Sensor pausado — humedad ahora: {formatHumedad(latestQuery.data?.humedad_suelo ?? null)}
           </Text>
           <Text style={styles.pauseBannerSubtitle}>
             El riego automático no se activará hasta las{" "}

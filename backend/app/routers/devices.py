@@ -13,7 +13,7 @@ from app.models.location import Location
 from app.models.plant_photo_diagnosis import PlantPhotoDiagnosis
 from app.models.plant_type import PlantType
 from app.models.user import User
-from app.schemas.device import CalibratePoint, DeviceClaimRequest, DeviceOut, DeviceUpdate, ReadingsOut
+from app.schemas.device import CalibratePoint, DeviceClaimRequest, DeviceOut, DeviceUpdate, LatestReadingsOut, ReadingsOut
 from app.schemas.health import HealthSummaryOut
 from app.schemas.photo_diagnosis import PhotoDiagnosisOut
 from app.security import verify_claim_code
@@ -143,6 +143,18 @@ def get_readings(
 ) -> dict:
     _get_owned_device_or_404(device_id, user, db)  # comprobacion de propiedad
     return influx_client.get_readings(device_id, hours)
+
+
+@router.get("/{device_id}/latest-readings", response_model=LatestReadingsOut)
+def get_latest_readings(
+    device_id: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict:
+    """Ultimo valor real de cada campo, sin agregar - para la fila-resumen
+    en vivo y el banner de pausa del sensor, donde el 'ultimo punto' de
+    /readings (agregado a 1m/10m/1h segun el rango) tarda demasiado en
+    reflejar un cambio real."""
+    _get_owned_device_or_404(device_id, user, db)
+    return {field: influx_client.get_latest_value(device_id, field) for field in influx_client.NUMERIC_FIELDS}
 
 
 @router.post("/{device_id}/water", status_code=status.HTTP_202_ACCEPTED)

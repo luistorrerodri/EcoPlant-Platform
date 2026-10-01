@@ -72,3 +72,13 @@ class ReadingsOut(BaseModel):
     device_id: str
     latest_estado: str | None
     points: list[ReadingPoint]
+
+
+class LatestReadingsOut(BaseModel):
+    # Sin agregar (a diferencia de ReadingsOut.points, que agrega a
+    # 1m/10m/1h segun el rango) - "lo que marca el sensor ahora mismo",
+    # mismo patron que ya usa /calibrate via influx_client.get_latest_value.
+    humedad_suelo: float | None
+    temp_suelo: float | None
+    temp_aire: float | None
+    presion: float | None
