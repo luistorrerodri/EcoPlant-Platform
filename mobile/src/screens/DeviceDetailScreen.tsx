@@ -99,7 +99,11 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
   const readingsQuery = useQuery({
     queryKey: ["readings", deviceId, selectedHours],
     queryFn: () => devicesApi.getReadings(deviceId, selectedHours),
-    refetchInterval: 30_000,
+    // Mientras el sensor esta pausado (moviendo la sonda a mano) se
+    // refresca mucho mas rapido para que el % en el banner se note "en
+    // tiempo real" al reposicionarla - el resto del tiempo, 30s es de
+    // sobra (el ESP32 solo publica cada 4s de todas formas).
+    refetchInterval: sensorPausado ? 3_000 : 30_000,
   });
 
   const points = readingsQuery.data?.points ?? [];

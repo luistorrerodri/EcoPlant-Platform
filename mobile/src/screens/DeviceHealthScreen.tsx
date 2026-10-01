@@ -28,6 +28,37 @@ function formatPct(value: number | null): string {
   return value != null ? `${(value * 100).toFixed(0)}%` : "—";
 }
 
+type MergedDiagnosis = {
+  icon: string;
+  label: string;
+  color: string;
+  message: string;
+  source: "foto" | "sensores";
+  createdAt: string;
+};
+
+// La foto siempre gana cuando existe: el propio prompt de la IA (ver
+// plant_vision.py) ya le pide que mezcle foto + sensores en un unico
+// mensaje y marque contradicciones - no hace falta "mezclar" nada aqui,
+// solo elegir que tarjeta mostrar. Si no hay ninguna foto analizada
+// todavia (o la unica que hubo nunca llego a analizarse con exito), cae
+// al diagnostico por sensores. Un intento de foto fallido no borra una
+// foto anterior valida - photoQuery simplemente no cambia si el POST falla.
+function mergeDiagnosis(
+  photoDiagnosis: { verdict: PhotoVerdict; message: string; created_at: string } | undefined,
+  summary: { verdict: HealthVerdict; message: string; created_at: string } | undefined
+): MergedDiagnosis | null {
+  if (photoDiagnosis) {
+    const info = PHOTO_VERDICT_INFO[photoDiagnosis.verdict];
+    return { ...info, message: photoDiagnosis.message, source: "foto", createdAt: photoDiagnosis.created_at };
+  }
+  if (summary) {
+    const info = VERDICT_INFO[summary.verdict];
+    return { ...info, message: summary.message, source: "sensores", createdAt: summary.created_at };
+  }
+  return null;
+}
+
 export default function DeviceHealthScreen({ route }: Props) {
   const { deviceId } = route.params;
   const queryClient = useQueryClient();
@@ -107,30 +138,39 @@ export default function DeviceHealthScreen({ route }: Props) {
     ]);
   }
 
-  if (summaryQuery.isLoading) {
+  if (summaryQuery.isLoading || photoQuery.isLoading) {
     return <ActivityIndicator style={styles.loading} />;
   }
 
+  const diagnosis = mergeDiagnosis(
+    photoNotFound ? undefined : photoDiagnosis,
+    notFound ? undefined : summary
+  );
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {notFound || !summary ? (
+      {!diagnosis ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
-            Todavía no hay ningún resumen de salud para este dispositivo. Se genera automáticamente cada
-            unos días, o puedes calcularlo ahora mismo.
+            Todavía no hay ningún diagnóstico para este dispositivo. Se genera automáticamente a partir
+            de los sensores cada unos días, puedes calcularlo ahora mismo, o subir una foto para un
+            diagnóstico más completo.
           </Text>
         </View>
       ) : (
         <>
-          <View style={[styles.verdictCard, { borderColor: VERDICT_INFO[summary.verdict].color }]}>
-            <Text style={styles.verdictIcon}>{VERDICT_INFO[summary.verdict].icon}</Text>
-            <Text style={[styles.verdictLabel, { color: VERDICT_INFO[summary.verdict].color }]}>
-              {VERDICT_INFO[summary.verdict].label}
+          <View style={[styles.verdictCard, { borderColor: diagnosis.color }]}>
+            <Text style={styles.verdictIcon}>{diagnosis.icon}</Text>
+            <Text style={[styles.verdictLabel, { color: diagnosis.color }]}>{diagnosis.label}</Text>
+            <Text style={styles.sourceTag}>
+              {diagnosis.source === "foto"
+                ? "📷 Basado en tu última foto + los sensores"
+                : "🌿 Basado en los sensores — sube una foto para un diagnóstico más completo"}
             </Text>
-            <Text style={styles.message}>{summary.message}</Text>
+            <Text style={styles.message}>{diagnosis.message}</Text>
           </View>
 
-          {summary.verdict !== "datos_insuficientes" ? (
+          {summary && summary.verdict !== "datos_insuficientes" ? (
             <View style={styles.statsGrid}>
               <View style={styles.statBox}>
                 <Text style={styles.statValue}>{summary.num_riegos ?? "—"}</Text>
@@ -178,7 +218,8 @@ export default function DeviceHealthScreen({ route }: Props) {
           ) : null}
 
           <Text style={styles.updatedAt}>
-            Calculado el {new Date(summary.created_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+            {diagnosis.source === "foto" ? "Foto del " : "Calculado el "}
+            {new Date(diagnosis.createdAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
           </Text>
         </>
       )}
@@ -192,16 +233,16 @@ export default function DeviceHealthScreen({ route }: Props) {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.refreshButtonText}>
-            {notFound || !summary ? "Calcular ahora" : "🔄 Recalcular ahora"}
+            {notFound || !summary ? "Calcular por sensores ahora" : "🔄 Recalcular por sensores"}
           </Text>
         )}
       </Pressable>
 
       <View style={styles.divider} />
-      <Text style={styles.sectionTitle}>📷 Diagnóstico visual</Text>
+      <Text style={styles.sectionTitle}>📷 Foto de la planta</Text>
       <Text style={styles.sectionIntro}>
-        Cosas que un sensor de suelo nunca puede ver — hojas amarillas, plaga, marchitez. Compara con la foto
-        anterior si ya habías subido una.
+        Sube una foto para que el diagnóstico de arriba también tenga en cuenta cosas que ningún sensor
+        puede ver — hojas amarillas, plaga, marchitez. Compara con la foto anterior si ya habías subido una.
       </Text>
 
       {photoQuery.isLoading ? (
@@ -213,18 +254,10 @@ export default function DeviceHealthScreen({ route }: Props) {
       ) : (
         <>
           {imageSource ? <Image source={imageSource} style={styles.photoThumbnail} /> : null}
-          <View
-            style={[styles.verdictCard, { borderColor: PHOTO_VERDICT_INFO[photoDiagnosis.verdict].color }]}
-          >
-            <Text style={styles.verdictIcon}>{PHOTO_VERDICT_INFO[photoDiagnosis.verdict].icon}</Text>
-            <Text style={[styles.verdictLabel, { color: PHOTO_VERDICT_INFO[photoDiagnosis.verdict].color }]}>
-              {PHOTO_VERDICT_INFO[photoDiagnosis.verdict].label}
-            </Text>
-            <Text style={styles.message}>{photoDiagnosis.message}</Text>
-          </View>
           <Text style={styles.updatedAt}>
-            Foto del{" "}
+            Última foto del{" "}
             {new Date(photoDiagnosis.created_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
+            {" — su diagnóstico es el que ves arriba"}
           </Text>
         </>
       )}
@@ -258,7 +291,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   verdictIcon: { fontSize: 40, marginBottom: 8 },
-  verdictLabel: { fontSize: 20, fontWeight: "700", marginBottom: 10 },
+  verdictLabel: { fontSize: 20, fontWeight: "700", marginBottom: 4 },
+  sourceTag: { fontSize: 11.5, color: "#999", marginBottom: 10, textAlign: "center" },
   message: { fontSize: 15, color: "#444", textAlign: "center", lineHeight: 21 },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 16 },
   statBox: {
