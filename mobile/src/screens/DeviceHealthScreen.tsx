@@ -92,10 +92,12 @@ export default function DeviceHealthScreen({ route }: Props) {
     photoQuery.isError && photoQuery.error instanceof ApiError && photoQuery.error.status === 404;
   const photoDiagnosis = photoQuery.data;
 
-  const [imageSource, setImageSource] = useState<{ uri: string; headers: Record<string, string> } | null>(null);
+  const [imageSource, setImageSource] = useState<{ uri: string } | null>(null);
   useEffect(() => {
     if (photoDiagnosis) {
       devicesApi.getPhotoDiagnosisImageSource(deviceId, photoDiagnosis.created_at).then(setImageSource);
+    } else {
+      setImageSource(null);
     }
   }, [deviceId, photoDiagnosis]);
 
@@ -105,7 +107,9 @@ export default function DeviceHealthScreen({ route }: Props) {
       queryClient.setQueryData(["photo-diagnosis", deviceId], data);
     },
     onError: (err) => {
-      const message = err instanceof ApiError ? err.detail : "No se pudo analizar la foto";
+      // eslint-disable-next-line no-console
+      console.error("submitPhotoDiagnosis failed:", err);
+      const message = err instanceof ApiError ? err.detail : `No se pudo analizar la foto: ${String((err as Error)?.message ?? err)}`;
       Alert.alert("Error", message);
     },
   });

@@ -483,3 +483,27 @@ sudo systemctl restart caddy
 **Solución**: añadir `duracion_riego_ms` a `DeviceUpdate` y a la rama de actualización de `PATCH /api/devices/{id}`, copiar el valor del tipo al elegirlo en el selector (igual que ya se hacía con humedad/horario), y exponer un campo editable en `DeviceConfigScreen.tsx`. No hizo falta migración — la columna ya existía, solo le faltaba un camino para llegar a ella.
 
 **Aprendizaje**: que una columna exista y tenga un valor por tipo sembrado en el catálogo no significa que el dato llegue a usarse — hay que trazar la cadena completa (UI → schema de entrada → router → modelo) para cada campo nuevo, no asumir que "está en la base de datos" implica "está conectado". Mismo tipo de gap que #22/#23 (umbral fijo que debía ser relativo al tipo de planta), pero esta vez en el extremo de escritura en vez del de lectura.
+
+---
+
+## 32. Subir una foto fallaba con "Unsupported FormDataPart implementation" — nunca se había probado en un dispositivo real
+
+**Síntoma**: al pulsar "Actualizar foto" en la primera instalación real de la build (el código llevaba semanas escrito pero nunca ejecutado en un móvil, solo compilado), saltaba un error genérico ("No se pudo analizar la foto") y en el log del backend no aparecía ni rastro de la petición — ni siquiera un intento fallido. Tras mejorar el mensaje de error para que mostrase la excepción real (`err.message` en vez de un texto fijo) y probar otra vez con la app ya conectada al servidor de desarrollo (sin necesitar una build nueva para cada intento), el mensaje real fue: `Unsupported FormDataPart implementation`.
+
+**Diagnóstico**: Expo SDK 57 instala `expo/fetch` como el `fetch` global de la app, sustituyendo al `fetch` "clásico" de React Native. Su codificador de `FormData` es más estricto: solo acepta como parte un `string`, un `Blob` real, o un objeto con un método `bytes()` — y el código construía la parte del fichero con el patrón "legacy" de React Native, `{uri, name, type}` forzado a `Blob` con un cast de TypeScript (`as unknown as Blob`), que nunca fue un `Blob` de verdad. Ese patrón llevaba años siendo el estándar en RN y dejó de funcionar sin más aviso que este error al cambiar de runtime de `fetch`.
+
+**Solución**: convertir el fichero local a un `Blob` real antes de añadirlo al `FormData`, sin depender de ningún módulo nativo nuevo (lo que habría exigido una build de EAS solo para esto): `const blob = new Blob([await (await fetch(photoUri)).blob()], {type: "image/jpeg"})`, fijando el tipo explícitamente porque un `fetch` a un `file://` local no siempre trae el content-type correcto. `formData.append("photo", blob, "planta.jpg")` en vez del objeto `{uri,name,type}`.
+
+**Aprendizaje**: un cambio de versión del SDK (aquí, qué implementación de `fetch` usa `globalThis.fetch` por defecto) puede romper un patrón que llevaba años siendo "el estándar", sin que lo señale ningún aviso de compilación — el error solo aparece en tiempo de ejecución, en un dispositivo real. Mejorar el mensaje de error para mostrar la excepción real (en vez de un texto genérico fijo) fue lo que permitió diagnosticarlo en segundos en vez de adivinar a ciegas; vale la pena hacerlo también en el resto de `catch` genéricos de la app, no solo aquí.
+
+---
+
+## 33. La miniatura de la foto no cargaba — cabeceras personalizadas en `<Image>`, poco fiables en Android
+
+**Síntoma**: en el mismo log del backend que reveló el problema #32 aparecían peticiones repetidas a `GET .../photo-diagnosis/image` devolviendo `401 Unauthorized` — y en la app, la miniatura de la foto se quedaba como un hueco gris vacío en vez de mostrar la imagen.
+
+**Diagnóstico**: `getPhotoDiagnosisImageSource()` construía `{uri, headers: {Authorization: "Bearer ..."}}`  y se lo pasaba directamente a `<Image source={...}>`, confiando en que el componente nativo usara esas cabeceras en su petición de red interna. Ese mecanismo es conocido por ser poco fiable en Android, y además no tenía ningún reintento si el access token había caducado mientras tanto (a diferencia de `apiRequest`, que sí refresca el token y reintenta una vez ante un 401) — un fallo silencioso sin ningún mensaje de error visible, solo la imagen que nunca llega a aparecer.
+
+**Solución**: dejar de pasarle cabeceras a `<Image>` del todo. En su lugar, `getPhotoDiagnosisImageSource()` descarga la imagen ya autenticada con `fetch` (con el mismo patrón de reintento-tras-401 que `apiRequest`, usando el `refreshAccessToken` ya existente, ahora exportado para reutilizarlo), la convierte a un `Blob` y de ahí a un data URI con `FileReader.readAsDataURL()`, y se la pasa a `<Image source={{uri: dataUri}}>` ya embebida — sin cabeceras que puedan fallar en silencio. Si la descarga falla por cualquier motivo, devuelve `null` y la app no muestra ningún hueco vacío en su lugar (en vez de intentar y fallar silenciosamente).
+
+**Aprendizaje**: las cabeceras personalizadas en `<Image>` de React Native son una ruta de red completamente aparte del resto de la app (no pasa por `apiRequest`, no hereda su lógica de refresco de sesión) — cualquier pantalla que las use hereda silenciosamente el mismo punto ciego de autenticación que ya se evitó en todos los demás sitios. Más robusto descargar con el mismo mecanismo autenticado que ya existe y pasarle a `<Image>` el resultado ya resuelto, que confiarle a un componente nativo una cabecera que puede caducar sin que nadie se entere.

@@ -20,7 +20,7 @@ export function registerSessionExpiredHandler(handler: () => void): void {
   onSessionExpired = handler;
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = await getRefreshToken();
   if (!refreshToken) return null;
 

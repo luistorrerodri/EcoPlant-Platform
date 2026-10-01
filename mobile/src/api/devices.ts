@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiRequest, refreshAccessToken } from "./client";
 import { getAccessToken, getApiBaseUrl } from "../auth/secureStorage";
 import type { DeviceEnvironment, DeviceOut, HealthSummaryOut, PhotoDiagnosisOut, ReadingsOut } from "../types/api";
 
@@ -77,15 +77,19 @@ export function calibrateDevice(deviceId: string, punto: "seco" | "humedo"): Pro
   });
 }
 
-export function submitPhotoDiagnosis(deviceId: string, photoUri: string): Promise<PhotoDiagnosisOut> {
+export async function submitPhotoDiagnosis(deviceId: string, photoUri: string): Promise<PhotoDiagnosisOut> {
+  // Expo SDK 57 instala expo/fetch como fetch global, y su codificador de
+  // FormData ya no acepta el objeto "legacy" de RN {uri, name, type} - solo
+  // string, un Blob real, o un objeto con bytes(). Se lee el fichero local
+  // como Blob real con el propio fetch (sin depender de ningun modulo
+  // nativo nuevo) y se le fija el tipo explicitamente, porque un fetch a
+  // un file:// local no siempre trae el content-type correcto.
+  const localFile = await fetch(photoUri);
+  const rawBlob = await localFile.blob();
+  const blob = new Blob([rawBlob], { type: "image/jpeg" });
+
   const formData = new FormData();
-  // RN acepta este objeto {uri, name, type} como si fuera un Blob al
-  // construir el FormData - patron estandar para subir ficheros locales.
-  formData.append("photo", {
-    uri: photoUri,
-    name: "planta.jpg",
-    type: "image/jpeg",
-  } as unknown as Blob);
+  formData.append("photo", blob, "planta.jpg");
   return apiRequest<PhotoDiagnosisOut>(`/api/devices/${deviceId}/photo-diagnosis`, {
     method: "POST",
     body: formData,
@@ -96,22 +100,52 @@ export function getPhotoDiagnosis(deviceId: string): Promise<PhotoDiagnosisOut> 
   return apiRequest<PhotoDiagnosisOut>(`/api/devices/${deviceId}/photo-diagnosis`);
 }
 
+function blobToDataUri(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error("No se pudo leer la imagen"));
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+}
+
 // La miniatura de la foto no pasa por apiRequest (esa solo sabe parsear
-// JSON) - <Image> de React Native soporta pasarle sus propias cabeceras
-// para una URL autenticada, así que solo hace falta construir la URL y
-// el token vigente.
+// JSON). Antes se le pasaban {uri, headers} a <Image> directamente, pero
+// las cabeceras personalizadas en <Image> son poco fiables en Android (y
+// no se refrescan solas si el access token ya ha caducado) - se vio como
+// 401 repetidos en el log del backend. En su lugar, se descarga ya
+// autenticada (con el mismo reintento-tras-401 que el resto de la API) y
+// se pasa como data URI embebida: no hace falta cabecera ninguna en
+// <Image>. Devuelve null si no se puede cargar, para no mostrar un hueco
+// vacío donde iría la foto.
 export async function getPhotoDiagnosisImageSource(
   deviceId: string,
   cacheKey?: string
-): Promise<{ uri: string; headers: Record<string, string> }> {
+): Promise<{ uri: string } | null> {
   const baseUrl = await getApiBaseUrl();
-  const accessToken = await getAccessToken();
-  // cacheKey (normalmente el created_at del diagnostico) evita que el
-  // cache de imagenes del sistema se quede con la foto vieja bajo la
-  // misma URL cuando se sube una nueva.
-  const cacheParam = cacheKey ? `?t=${encodeURIComponent(cacheKey)}` : "";
-  return {
-    uri: `${baseUrl}/api/devices/${deviceId}/photo-diagnosis/image${cacheParam}`,
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-  };
+  const path = `/api/devices/${deviceId}/photo-diagnosis/image`;
+  // cacheKey (normalmente el created_at del diagnostico) solo es parte de
+  // la cache-key local de react-query - no hace falta mandarlo al backend.
+  void cacheKey;
+
+  async function fetchOnce(): Promise<Response> {
+    const accessToken = await getAccessToken();
+    return fetch(`${baseUrl}${path}`, {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+    });
+  }
+
+  try {
+    let response = await fetchOnce();
+    if (response.status === 401) {
+      const newToken = await refreshAccessToken();
+      if (!newToken) return null;
+      response = await fetchOnce();
+    }
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return { uri: await blobToDataUri(blob) };
+  } catch {
+    return null;
+  }
 }
