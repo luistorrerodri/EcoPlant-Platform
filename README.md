@@ -16,11 +16,13 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Pensado desde el diseño para escalar a múltiples dispositivos
 - API multiusuario propia (registro, ubicaciones, dispositivos), consumida por una app móvil real (Android, misma base para iOS)
 - Notificaciones push cuando un macetero se desconecta o termina de regar
-- Umbrales de riego y de estado personalizables por tipo de planta (catálogo de 12 tipos), no un valor fijo para todas
+- Umbrales de riego y de estado personalizables por tipo de planta (catálogo de 43 tipos en 6 categorías: plantas, árboles, palmeras, hoja grande, colgantes y crasas), no un valor fijo para todas
 - Consulta el pronóstico de lluvia antes de regar en exterior (Open-Meteo)
 - Resumen periódico de salud de la planta (tiempo bajo el mínimo, saturación, ritmo de secado) a partir del histórico
 - Calibración del sensor de humedad desde la app, sin reflashear el dispositivo
-- Diagnóstico visual con IA: una foto de la planta + el histórico de sensores, valorados juntos por un modelo con visión — detecta cosas que ningún sensor puede ver (hojas amarillas, plaga) y también contradicciones entre lo que se ve y lo que miden los sensores
+- Diagnóstico único de salud: combina el histórico de sensores con la última foto analizada por IA en un solo veredicto — si no hay foto, o la IA falla, cae automáticamente al diagnóstico por sensores sin perder nada
+- Duración del riego también personalizable por tipo de planta, no solo los umbrales de humedad
+- Pausa temporal del sensor (con lectura en vivo en la app) para poder moverlo o trasplantar la planta sin que un riego automático se dispare por error
 
 ## Arquitectura
 
@@ -82,7 +84,8 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Catálogo de tipos de planta: umbrales de riego y de estado relativos a cada tipo, no fijos
 - [x] Integración meteorológica (Open-Meteo) para no regar en exterior si hay lluvia prevista
 - [x] Resumen de salud de la planta (rules-based) y calibración del sensor de humedad desde la app
-- [x] Diagnóstico visual con IA (foto + sensores) — backend probado y desplegado; falta la build de la app para que llegue al móvil
+- [x] Diagnóstico visual con IA (foto + sensores), fusionado con el resumen por sensores en un único veredicto, con caída automática a sensores si no hay foto o la IA falla
+- [x] Duración de riego y pausa temporal del sensor (con lectura en vivo), también personalizables por la app
 - [ ] Ajuste de umbrales por tipo de planta a partir de histórico real (aprendizaje automático)
 
 ## Problemas reales resueltos
@@ -95,6 +98,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - **Dos implementaciones de TLS, dos criterios**: el mismo certificado era aceptado por un cliente y rechazado por el otro, primero por falta de SAN (Node.js ignora el Common Name) y después por el tipo de entrada del SAN (mbedTLS no evalúa las de tipo `iPAddress`). Resuelto con un certificado que satisface a ambas implementaciones.
 - **Un ACL que deniega en silencio**: al añadir un topic MQTT nuevo, la configuración llegaba con éxito desde la app (`200 OK`) pero nunca al dispositivo — sin ningún error visible en ningún componente. Mosquitto descarta en silencio un publish/subscribe denegado por ACL; el fallo solo se confirmó leyendo el propio fichero de ACL en el servidor.
 - **Un "nivel gratuito" que no lo era**: al integrar IA con visión para el diagnóstico de plantas, el proveedor elegido por tener plan gratuito devolvía `503` de forma sostenida — resultó ser el límite real de la cuenta disfrazado de aviso de capacidad, confirmado reproduciendo la misma petición fuera del código, directamente en la consola del proveedor.
+- **Un patrón de años dejó de funcionar sin aviso**: subir una foto fallaba con `Unsupported FormDataPart implementation`, un error que no decía nada por sí solo. Causa real: un cambio de SDK sustituyó la implementación de `fetch` de la app, y la nueva ya no aceptaba el objeto `{uri, name, type}` que React Native lleva años usando para adjuntar ficheros — solo se detectó al ejecutar el código por primera vez en un dispositivo real, nunca falló en la compilación.
 
 ## Estructura del repositorio
 

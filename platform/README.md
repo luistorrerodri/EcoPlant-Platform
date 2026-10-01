@@ -794,6 +794,21 @@ if (necesitaRiego && dentroHorario && haPasadoTiempo && segundosDesdeOrden > 60 
 
 Deploy, y verificar: `POST /api/devices/macetero01/pause-sensor` por Swagger, luego mirar el panel de debug/estado del nodo "Decisión riego" — el punto de estado debe pasar a amarillo con el texto "PAUSADO" en el siguiente mensaje de sensores, y no debe dispararse ningún riego aunque la humedad esté por debajo del mínimo. `POST /api/devices/macetero01/resume-sensor` debe devolverlo a la normalidad al instante (sin esperar los 10 minutos de autoexpiración).
 
+### Ampliación del catálogo (27 plantas nuevas, 6 categorías, nombres sin latín) y lecturas en vivo
+
+Cuatro commits pequeños, el mismo día que lo anterior, ninguno toca Node-RED — solo migraciones de catálogo y un endpoint de solo lectura nuevo:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+alembic upgrade head          # 3 migraciones: catalogo ampliado, nombres sin latin, planta del dinero
+sudo systemctl restart ecoplant-backend
+```
+
+El endpoint nuevo es `GET /api/devices/{id}/latest-readings` (valor real de cada campo, sin agregar — mismo patrón que ya usaba `/calibrate`): se añadió porque `/readings` agrega a `1m`/`10m`/`1h` según el rango pedido, y "el último punto" de ahí podía tardar hasta 10 minutos en reflejar un cambio real — se notaba mucho probando el sensor en vivo (el OLED cambiaba, la app no). Verificar por Swagger: `GET /api/devices/macetero01/latest-readings` debe devolver un valor por campo (`humedad_suelo`, `temp_suelo`, `temp_aire`, `presion`) que coincida con lo que marca el dispositivo en ese momento, no con un promedio de los últimos minutos.
+
+Catálogo: tras el `alembic upgrade head`, `GET /api/plant-types` debe devolver 43 entradas, ninguna con nombre científico en latín (p. ej. `Pata de elefante`, no `Beaucarnea recurvata (pata de elefante)`), y dos entradas distintas para "planta del dinero" (`Árbol del dinero`, categoría `arbol`, y `Planta del dinero`, categoría `colgante`) — son especies distintas que comparten apodo popular, ver `docs/troubleshooting.md`.
+
 ---
 
 ## Verificación del stack completo

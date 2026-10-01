@@ -29,6 +29,8 @@ eas build --platform android --profile development
 
 Descarga e instala el APK resultante en el móvil (enlace o QR al terminar la build, ~10-15 min). El perfil `development` está definido en `eas.json`.
 
+**`development` no sirve para uso normal**: esa build no lleva el JS metido dentro, necesita `npx expo start --dev-client` corriendo y el móvil en la misma red — pensada para iterar rápido sin gastar build nueva en cada cambio (edición en caliente, igual que Expo Go). Para una build que funcione sola, fuera de casa, sin nada corriendo en ningún ordenador — para uso real o para enseñarla — usar el perfil `preview` (`eas build --platform android --profile preview`): el JS va embebido en el APK, como una app normal instalada. A partir de ahí, cualquier cambio de código vuelve a necesitar una build nueva.
+
 ## Notificaciones push (Firebase/FCM)
 
 Requiere un proyecto de Firebase vinculado (uno ya creado para este proyecto, `ecoplant-51a78`):
@@ -41,6 +43,10 @@ Si se regenera el proyecto de Firebase o se pierde la clave, hay que repetir el 
 ## Diagnóstico visual con IA
 
 `expo-image-picker` (cámara y galería) para la pantalla "Salud de la planta" — configurado como config plugin en `app.json` con los textos de permiso en español (`cameraPermission`/`photosPermission`). Sube la foto con `FormData`; `src/api/client.ts` detecta un cuerpo `FormData` y no le fija `Content-Type` a mano, para que `fetch` añada el boundary multipart correcto solo.
+
+**Ojo con el formato del fichero en el `FormData`**: el patrón "clásico" de React Native (`formData.append("photo", {uri, name, type})`) dejó de funcionar en Expo SDK 57 — su `fetch` global (`expo/fetch`) solo acepta un `string`, un `Blob` real, o un objeto con `bytes()`. `submitPhotoDiagnosis()` (`src/api/devices.ts`) convierte el fichero local a un `Blob` real con `fetch(uri).then(r => r.blob())` antes de adjuntarlo — ver `docs/troubleshooting.md` #32 si esto vuelve a fallar tras actualizar el SDK.
+
+La pantalla de salud (`DeviceHealthScreen.tsx`) fusiona este diagnóstico con el resumen por sensores en una única tarjeta: muestra el de la última foto analizada con éxito si existe (ya mezcla foto y sensores en su propio mensaje), y si no, cae al de sensores — ver `docs/architecture.md` § "Diagnóstico visual de la planta con IA".
 
 ## URL del servidor
 

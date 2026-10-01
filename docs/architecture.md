@@ -181,6 +181,8 @@ Columnas `devices.soil_dry_raw`/`soil_wet_raw` en Postgres, con los mismos valor
 
 Consecuencia práctica: recalibrar el sensor (cambio de sonda, de sustrato, desgaste) ya no exige recompilar ni reflashear — solo sacar el sensor a secar al aire y sumergirlo en agua, pulsando un botón en cada paso desde la pantalla "Calibrar sensor" de la app.
 
+El mismo principio ("consulta puntual sin agregar para *lo que marca el sensor ahora mismo*, no la misma función que alimenta las gráficas") se reutilizó para `GET /devices/{id}/latest-readings`: la fila-resumen de la app y el banner de pausa del sensor necesitan el valor real en vivo, no el último punto de una serie agregada a 10 minutos como la que usa `GET /readings` para pintar un histórico — ver troubleshooting #34.
+
 ## Diagnóstico visual de la planta con IA
 
 Complementario al resumen de salud estadístico (no un reemplazo): hay síntomas que ningún sensor de suelo puede ver — hojas amarillas, plaga, marchitez. El usuario sube una foto desde la app; el backend la junta con un resumen de los últimos 5 días de sensores (humedad, temperaturas, riegos — mismo criterio de no mandar la serie en crudo que `aggregateWindow()` en `get_readings`) y se la manda a un modelo de IA con visión para una valoración cualitativa en texto, con su propio veredicto de tres niveles (`bien`/`revisar`/`preocupante`) — deliberadamente distinto del `HealthVerdict` del resumen estadístico, porque un síntoma visual como una plaga no encaja en categorías pensadas para umbrales de humedad.
