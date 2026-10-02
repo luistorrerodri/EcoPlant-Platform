@@ -53,12 +53,12 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 
 | Capa | Tecnología |
 |---|---|
-| Sensores | BMP280 (temp/presión), sonda capacitiva de humedad de suelo, RTC DS1307 |
+| Sensores | sonda capacitiva de humedad de suelo + RTC DS1307 en todos los dispositivos; sensor de ambiente varía por dispositivo (BMP280 en `macetero01`, DHT22 en `macetero02` — ver [`firmware/README.md`](firmware/README.md)) |
 | Microcontrolador | ESP32 DevKit (Arduino framework, PlatformIO) |
 | Mensajería | MQTT (Mosquitto) |
 | Orquestación / lógica | Node-RED |
 | Persistencia | InfluxDB 2.x (series temporales) |
-| Visualización | Grafana + Node-RED Dashboard |
+| Visualización | Grafana (histórico, escalable por dispositivo) |
 | Servidor | Raspberry Pi (Debian Bookworm, ARM64) |
 | Acceso remoto | Caddy (proxy, solo expone `/ui` y `/api/*`) + Cloudflare Tunnel |
 | Backend API | Python + FastAPI, PostgreSQL |
@@ -69,7 +69,7 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Hardware validado (sensores, RTC, OLED, bomba)
 - [x] Firmware de producción: mide, publica por MQTT, obedece comandos
 - [x] Pipeline completo de datos: ESP32 → MQTT → Node-RED → InfluxDB → Grafana
-- [x] Dashboard de control: riego manual, umbral y horario configurables en caliente
+- [x] Control completo desde la app: riego manual, pausa de sensor, umbral y horario configurables en caliente (sin Node-RED Dashboard — retirado por redundante, ver `docs/architecture.md`)
 - [x] Lógica de decisión de riego migrada completamente al servidor
 - [x] Estructura de topics escalable para múltiples dispositivos (`device_id` dinámico)
 - [x] Configuración persistente entre reinicios de la plataforma

@@ -422,17 +422,30 @@ sudo systemctl restart grafana-server
 
 *Dashboards → New → Import* → pegar [`grafana/dashboard.json`](grafana/dashboard.json).
 
-Consulta Flux de ejemplo:
+> El campo `estado` es de tipo texto. Incluirlo en una consulta con función de agregación `mean` produce el error `unsupported input type for mean aggregate: string`. Para consultarlo hay que usar `last` y hacerlo en una query separada de los campos numéricos.
+
+**Escalable por variable de dispositivo (2026-10-02)**, en vez de un `device_id` fijo en cada panel. Imprescindible desde que hay más de un dispositivo — añadir `macetero02` reveló que el dashboard original tenía `"macetero01"` escrito a mano en las 3 queries, así que no mostraba nada de ningún dispositivo nuevo sin tocar el JSON a mano.
+
+- **Variable `device`** (Dashboard settings → Variables → Add variable, tipo Query, datasource InfluxDB):
+  ```flux
+  import "influxdata/influxdb/v1"
+  v1.tagValues(bucket: "macetero_iot", tag: "device_id")
+  ```
+  Se autoalimenta de los `device_id` que de verdad han escrito algo en el bucket — un dispositivo nuevo aparece solo en la lista en cuanto publica su primer punto, sin editar el dashboard.
+- Cada panel usa `r.device_id == "${device}"` en su filtro Flux, no un valor fijo.
+- **5 paneles** en total: Humedad Suelo, Temperatura Aire, Presión (los 3 originales) más **Temperatura de suelo** y **Humedad ambiente** (añadidos hoy, clonados de un panel existente cambiando `_field`). Con un dispositivo que no mide un campo concreto (p. ej. `presion` en `macetero02`, o `humedad_ambiente` en `macetero01`), ese panel sale "No data" — comportamiento esperado, no un fallo, mismo criterio de campo opcional por dispositivo que el resto de la plataforma.
+
+Consulta Flux de ejemplo (ya con la variable):
 
 ```flux
 from(bucket: "macetero_iot")
   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
   |> filter(fn: (r) => r._measurement == "sensores")
   |> filter(fn: (r) => r._field == "humedad_suelo")
-  |> filter(fn: (r) => r.device_id == "macetero01")
+  |> filter(fn: (r) => r.device_id == "${device}")
 ```
 
-> El campo `estado` es de tipo texto. Incluirlo en una consulta con función de agregación `mean` produce el error `unsupported input type for mean aggregate: string`. Para consultarlo hay que usar `last` y hacerlo en una query separada de los campos numéricos.
+> `grafana/dashboard.json` en el repo sigue reflejando la versión de 3 paneles fijos a `macetero01` — pendiente de reexportar desde el editor en vivo para sincronizarlo (mismo patrón que `nodered/flows.json`: referencia, no fuente de verdad).
 
 ---
 
@@ -905,6 +918,18 @@ sudo systemctl restart ecoplant-backend
 ```
 
 Verificar por Swagger con `macetero02` (una vez tenga un par de días de histórico real): `POST /api/devices/macetero02/health-summary/refresh` debe devolver `humedad_ambiente_avg` con un valor real; el mismo endpoint para `macetero01` debe seguir devolviendo `humedad_ambiente_avg: null` y un `verdict`/`message` idénticos a como se comportaba antes de este cambio — confirma que el nuevo campo no altera el diagnóstico de un dispositivo que no lo mide. Para probar la rama nueva del veredicto (`revisar_drenaje` disparado por ambiente húmedo + saturación moderada) hace falta que `macetero02` acumule unos días con el sustrato relativamente húmedo y el ambiente por encima del 70% — no es algo que se pueda forzar desde Swagger, toca esperar a que ocurra con uso real o, si urge probarlo antes, insertar puntos de prueba directamente en InfluxDB.
+
+### Limpieza de Node-RED: configuración muerta y dashboard legacy eliminados (2026-10-02)
+
+Al revisar la escalabilidad de cara a un tercer dispositivo, aparecieron dos restos de antes de que la configuración de riego se migrara a Postgres (roadmap paso 1, ver más arriba) — ninguno afectaba al pipeline real de datos, pero ambos eran hardcodeados a `macetero01` y no habrían escalado a un tercero sin duplicarse a mano.
+
+**1. Cluster de configuración muerto.** Un slider "Umbral de riego (%)" y dos desplegables "Hora inicio/fin riego", conectados a funciones (`Guardar Umbral`, `Guardar horario`, `Leer umbral/horario actual`, la ya desactivada `Init config maceteros`) que leían/escribían la variable global `config_maceteros` — la misma que el poller real (`Aplicar config recibida`, alimentado por `GET /api/internal/device-configs`) sobreescribe entera cada 60s. Cualquier cambio hecho a mano con el slider se borraba solo en menos de un minuto; además el slider ni siquiera tenía cable de salida, así que en la práctica no hacía nada en absoluto. Se eliminaron 13 nodos en total (4 widgets, 5 funciones, 4 de soporte — inject/debug). El botón "Regar Ahora" de ese mismo grupo sí funcionaba de verdad (publicaba el comando por MQTT), pero duplicaba el botón de la app solo para `macetero01` y se saltaba el registro en `watering_events` — también eliminado.
+
+**2. Dashboard "Monstera" completo eliminado.** La pestaña con los gauges/gráfica de `macetero01`, anterior a que existiera la app, quedó redundante frente a la app (vista completa por dispositivo) y Grafana (ya escalable, ver arriba) — decisión explícita de Luis: no construirla escalable aparte, directamente retirarla.
+
+**Resultado**: la única vía de configuración de riego/pausa-sensor es ahora App → Backend → Postgres → Node-RED (solo lectura vía el poller) — confirmado por código que `POST /{device_id}/water`, `pause-sensor`/`resume-sensor` y `GET /api/internal/device-configs` operan exclusivamente sobre la fila de ese `device_id`, sin estado compartido entre dispositivos. Un tercer dispositivo no necesita ningún nodo nuevo en Node-RED para esto.
+
+> `platform/nodered/flows.json` quedó desactualizado tras esta limpieza (todavía tiene los nodos borrados) — pendiente de reexportar desde el editor en vivo.
 
 ---
 
