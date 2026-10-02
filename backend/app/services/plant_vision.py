@@ -60,6 +60,7 @@ def _resumen_sensores(device: Device, db: Session) -> str:
         f"Humedad de suelo, ultimos 5 dias: {_rango('humedad_suelo')}\n"
         f"Temperatura de sustrato, ultimos 5 dias: {_rango('temp_suelo')}\n"
         f"Temperatura de aire, ultimos 5 dias: {_rango('temp_aire')}\n"
+        f"Humedad ambiente, ultimos 5 dias: {_rango('humedad_ambiente')}\n"
         f"Riegos en los ultimos 5 dias: {_num_riegos(device, db)}"
     )
 

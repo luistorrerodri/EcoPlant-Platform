@@ -95,6 +95,7 @@ export interface HealthSummaryOut {
   temp_aire_min: number | null;
   temp_aire_max: number | null;
   tasa_secado_pct_h: number | null;
+  humedad_ambiente_avg: number | null;
   created_at: string;
 }
 

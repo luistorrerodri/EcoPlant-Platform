@@ -19,6 +19,21 @@ DRYING_RATE_FAST_MARGIN = 1.3  # 30% mas rapido que el ritmo esperado del tipo
 DRYING_RATE_SLOW_MARGIN = 0.5  # menos de la mitad del ritmo esperado del tipo
 MIN_DRYING_SEGMENT_HOURS = 3.0  # tramos de bajada mas cortos se descartan como ruido
 
+# Humedad ambiente: solo disponible en dispositivos con DHT22/BME280 (no
+# todos - ver firmware/README.md), por eso cada uso de esto abajo
+# comprueba que el valor no sea None antes de aplicarse, y nunca cambia
+# el comportamiento de un dispositivo que no mide este campo (p.ej.
+# macetero01). Fundamento real, no un umbral inventado: la velocidad de
+# evaporacion del sustrato la rige el deficit de presion de vapor del
+# aire (la base de ET0/Penman-Monteith, el estandar agronomico para
+# programar riego) - a mas humedad relativa, menos deficit, evaporacion
+# mas lenta; a menos humedad, evaporacion mas rapida. Practicamente: el
+# mismo nivel de saturacion del sustrato es un riesgo de pudricion mayor
+# en aire humedo (el agua tarda mas en irse sola) que en aire seco.
+HIGH_AMBIENT_HUMIDITY_PCT = 70.0  # % RH a partir del cual sube el riesgo de hongos/pudricion en maceta
+LOW_AMBIENT_HUMIDITY_PCT = 40.0  # % RH tipico de interiores con calefaccion/AC, seca el sustrato mas rapido
+MODERATE_WET_THRESHOLD = 0.3  # fraccion de tiempo saturado que ya preocupa SI ademas el ambiente es humedo
+
 
 @dataclass
 class HealthSummaryResult:
@@ -34,6 +49,7 @@ class HealthSummaryResult:
     temp_aire_min: float | None
     temp_aire_max: float | None
     tasa_secado_pct_h: float | None
+    humedad_ambiente_avg: float | None
 
 
 def _drying_rate_pct_h(humedad_points: list[dict]) -> float | None:
@@ -104,6 +120,7 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
     humedad_points = [p for p in readings["points"] if p["field"] == "humedad_suelo"]
     temp_suelo_points = [p for p in readings["points"] if p["field"] == "temp_suelo"]
     temp_aire_points = [p for p in readings["points"] if p["field"] == "temp_aire"]
+    humedad_ambiente_points = [p for p in readings["points"] if p["field"] == "humedad_ambiente"]
 
     window_start = datetime.now(timezone.utc) - timedelta(days=window_days)
     events = (
@@ -115,6 +132,11 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
 
     temp_suelo_min, temp_suelo_max = _extremes(temp_suelo_points)
     temp_aire_min, temp_aire_max = _extremes(temp_aire_points)
+    humedad_ambiente_avg = (
+        sum(p["value"] for p in humedad_ambiente_points) / len(humedad_ambiente_points)
+        if humedad_ambiente_points
+        else None
+    )
 
     if len(humedad_points) < MIN_POINTS_FOR_VERDICT:
         return HealthSummaryResult(
@@ -133,6 +155,7 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
             temp_aire_min=temp_aire_min,
             temp_aire_max=temp_aire_max,
             tasa_secado_pct_h=None,
+            humedad_ambiente_avg=humedad_ambiente_avg,
         )
 
     pct_bajo_minimo = sum(1 for p in humedad_points if p["value"] < device.humedad_min) / len(humedad_points)
@@ -158,6 +181,14 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
             f"{pct_bajo_minimo:.0%} de los últimos {window_days} días. Puede que necesite regar más a "
             "menudo o revisar que el riego automático se esté ejecutando."
         )
+        # Informativo, no cambia el veredicto: el suelo seco puede ser en
+        # parte el ambiente (ver razonamiento junto a las constantes), no
+        # necesariamente que el riego automatico este fallando.
+        if humedad_ambiente_avg is not None and humedad_ambiente_avg < LOW_AMBIENT_HUMIDITY_PCT:
+            message += (
+                f" El aire también ha estado bastante seco ({humedad_ambiente_avg:.0f}% de media), lo que "
+                "acelera la evaporación y puede explicar parte de esta sequedad."
+            )
     elif pct_saturado > TOO_WET_THRESHOLD:
         # Sin riegos en la ventana no hay como medir tiempo_recuperacion_medio_h
         # (se mide desde un evento de riego) - pero un suelo que pasa la
@@ -168,6 +199,24 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
             f"El suelo ha estado por encima del máximo configurado ({device.humedad_max}%) durante "
             f"{pct_saturado:.0%} de los últimos {window_days} días. Puede indicar que el sustrato retiene "
             "demasiada agua o que se está regando más de lo que esta planta necesita."
+        )
+    elif (
+        humedad_ambiente_avg is not None
+        and humedad_ambiente_avg > HIGH_AMBIENT_HUMIDITY_PCT
+        and pct_saturado > MODERATE_WET_THRESHOLD
+    ):
+        # Mismo nivel de saturacion que no dispara la rama de arriba
+        # (TOO_WET_THRESHOLD), pero con el ambiente tan humedo el agua
+        # sobrante tarda mas en evaporarse sola - el mismo dato de suelo
+        # es un riesgo mayor en este contexto, ver el razonamiento junto
+        # a las constantes arriba.
+        verdict = "revisar_drenaje"
+        message = (
+            f"El suelo ha estado por encima del máximo configurado ({device.humedad_max}%) durante "
+            f"{pct_saturado:.0%} de los últimos {window_days} días, y la humedad ambiente ha sido alta "
+            f"({humedad_ambiente_avg:.0f}% de media). El aire húmedo ralentiza la evaporación natural del "
+            "sustrato, así que a este nivel de saturación conviene revisar el drenaje antes de que se "
+            "convierta en un problema mayor."
         )
     elif tiempo_recuperacion_medio_h is not None and tiempo_recuperacion_medio_h > SLOW_DRAINAGE_HOURS:
         verdict = "revisar_drenaje"
@@ -207,6 +256,15 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
         else:
             message += " El ritmo de secado es el esperado para este tipo de planta."
 
+        # Misma logica informativa: la humedad ambiente explica en parte
+        # el ritmo medido (ver constantes arriba), no es un dato nuevo
+        # que compita con la comparativa por tipo de planta de arriba.
+        if humedad_ambiente_avg is not None:
+            if humedad_ambiente_avg > HIGH_AMBIENT_HUMIDITY_PCT:
+                message += f" (humedad ambiente alta, {humedad_ambiente_avg:.0f}% de media, que normalmente frena el secado)"
+            elif humedad_ambiente_avg < LOW_AMBIENT_HUMIDITY_PCT:
+                message += f" (humedad ambiente baja, {humedad_ambiente_avg:.0f}% de media, que normalmente lo acelera)"
+
     return HealthSummaryResult(
         window_days=window_days,
         verdict=verdict,
@@ -220,4 +278,5 @@ def compute_health_summary(device: Device, db: Session, window_days: int = WINDO
         temp_aire_min=temp_aire_min,
         temp_aire_max=temp_aire_max,
         tasa_secado_pct_h=tasa_secado_pct_h,
+        humedad_ambiente_avg=humedad_ambiente_avg,
     )

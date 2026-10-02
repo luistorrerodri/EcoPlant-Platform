@@ -26,6 +26,7 @@ user macetero01
 topic write maceteros/macetero01/sensores
 topic write maceteros/macetero01/estado
 topic read  maceteros/macetero01/comando
+topic read  maceteros/macetero01/config
 ```
 
 Cada dispositivo nuevo requiere su bloque de ACL correspondiente. El `user` de cada bloque ya no es una cuenta con contraseña propia (ver "Certificados de cliente (mTLS)" más abajo): con `use_identity_as_username` activado, Mosquitto toma este nombre directamente del **CN del certificado de cliente** presentado en el handshake TLS. Por eso el CN de cada certificado debe coincidir exactamente con el `user` de su bloque de ACL.
@@ -134,6 +135,7 @@ user macetero02
 topic write maceteros/macetero02/sensores
 topic write maceteros/macetero02/estado
 topic read  maceteros/macetero02/comando
+topic read  maceteros/macetero02/config
 ```
 
 ```bash
@@ -890,6 +892,19 @@ return msg;
 Ver [`../firmware/README.md`](../firmware/README.md) § "Varios dispositivos, sensores de ambiente distintos" para qué publica cada dispositivo, y "Dar de alta un dispositivo nuevo" más arriba para el certificado/ACL/alta de `macetero02` en sí.
 
 Verificar: `GET /api/devices/macetero02/latest-readings` debe devolver `humedad_ambiente` con un valor real y `presion: null`; `GET /api/devices/macetero01/latest-readings` debe seguir exactamente igual que antes (`presion` con valor real, `humedad_ambiente: null`) — confirma que añadir el campo nuevo no afectó al dispositivo que ya funcionaba.
+
+### Humedad ambiente en el diagnóstico (resumen de salud por reglas + IA de la foto)
+
+Migración nueva (`f9c1a7e3b6d2`, añade `humedad_ambiente_avg` a `health_summaries`) más cambios de código en `health_analysis.py` y `plant_vision.py` — ver [`../docs/architecture.md`](../docs/architecture.md) § "Humedad ambiente en el resumen de salud" para el razonamiento agronómico completo:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+alembic upgrade head          # f9c1a7e3b6d2: humedad_ambiente_avg en health_summaries
+sudo systemctl restart ecoplant-backend
+```
+
+Verificar por Swagger con `macetero02` (una vez tenga un par de días de histórico real): `POST /api/devices/macetero02/health-summary/refresh` debe devolver `humedad_ambiente_avg` con un valor real; el mismo endpoint para `macetero01` debe seguir devolviendo `humedad_ambiente_avg: null` y un `verdict`/`message` idénticos a como se comportaba antes de este cambio — confirma que el nuevo campo no altera el diagnóstico de un dispositivo que no lo mide. Para probar la rama nueva del veredicto (`revisar_drenaje` disparado por ambiente húmedo + saturación moderada) hace falta que `macetero02` acumule unos días con el sustrato relativamente húmedo y el ambiente por encima del 70% — no es algo que se pueda forzar desde Swagger, toca esperar a que ocurra con uso real o, si urge probarlo antes, insertar puntos de prueba directamente en InfluxDB.
 
 ---
 

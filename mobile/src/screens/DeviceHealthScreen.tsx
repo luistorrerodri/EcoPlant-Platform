@@ -218,6 +218,12 @@ export default function DeviceHealthScreen({ route }: Props) {
                   <Text style={styles.statLabel}>Rango temp. aire</Text>
                 </View>
               ) : null}
+              {summary.humedad_ambiente_avg != null ? (
+                <View style={styles.statBox}>
+                  <Text style={styles.statValue}>{summary.humedad_ambiente_avg.toFixed(0)}%</Text>
+                  <Text style={styles.statLabel}>Humedad ambiente media</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
