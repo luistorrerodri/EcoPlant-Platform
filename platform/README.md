@@ -445,7 +445,7 @@ from(bucket: "macetero_iot")
   |> filter(fn: (r) => r.device_id == "${device}")
 ```
 
-> `grafana/dashboard.json` en el repo sigue reflejando la versión de 3 paneles fijos a `macetero01` — pendiente de reexportar desde el editor en vivo para sincronizarlo (mismo patrón que `nodered/flows.json`: referencia, no fuente de verdad).
+> `grafana/dashboard.json` resincronizado (2026-10-02) con la variable `${device}` y los 5 paneles — mismo patrón que `nodered/flows.json`: referencia, no fuente de verdad, se reexporta cada vez que el dashboard en vivo cambia de forma relevante.
 
 ---
 
@@ -929,7 +929,7 @@ Al revisar la escalabilidad de cara a un tercer dispositivo, aparecieron dos res
 
 **Resultado**: la única vía de configuración de riego/pausa-sensor es ahora App → Backend → Postgres → Node-RED (solo lectura vía el poller) — confirmado por código que `POST /{device_id}/water`, `pause-sensor`/`resume-sensor` y `GET /api/internal/device-configs` operan exclusivamente sobre la fila de ese `device_id`, sin estado compartido entre dispositivos. Un tercer dispositivo no necesita ningún nodo nuevo en Node-RED para esto.
 
-> `platform/nodered/flows.json` quedó desactualizado tras esta limpieza (todavía tiene los nodos borrados) — pendiente de reexportar desde el editor en vivo.
+> `platform/nodered/flows.json` resincronizado (2026-10-02) tras esta limpieza — ya no tiene ninguno de los nodos borrados.
 
 ---
 
