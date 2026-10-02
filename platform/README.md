@@ -855,7 +855,37 @@ cd backend && source .venv/bin/activate
 sudo systemctl restart ecoplant-backend
 ```
 
-**Falta la parte de Node-RED** (nodo "Formatear para InfluxDB"): necesita escribir `humedad_ambiente` cuando el dispositivo lo publique, sin escribir `presion` cuando no la publique (`macetero02` no tiene BMP280/BME280) — **ninguno de los dos campos debe rellenarse con `0` para el dispositivo que no lo tenga**, deja el campo tal cual venga en `msg.payload` (presente o `undefined`), no le pongas un valor por defecto. Pendiente de ver el código actual de ese nodo para dar el diff exacto, en vez de adivinarlo y arriesgarse a tocar algo de `macetero01`.
+**Node-RED (manual, en el editor):** en el nodo **"Formatear para InfluxDB"**, sustituir el bloque final (desde `let estado = cfg` hasta `return msg;`) por:
+
+```javascript
+let estado = cfg
+    ? calcularEstado(msg.payload.humedad_suelo, cfg.humedadMin, cfg.humedadMax)
+    : msg.payload.estado;
+
+let fields = {
+    humedad_suelo: msg.payload.humedad_suelo,
+    humedad_suelo_raw: msg.payload.humedad_suelo_raw,
+    temp_aire: msg.payload.temp_aire,
+    temp_suelo: msg.payload.temp_suelo,
+    estado: estado
+};
+
+// presion y humedad_ambiente dependen del sensor de ambiente de cada
+// dispositivo (BMP280 da presion, DHT22 da humedad_ambiente, ninguno
+// da los dos) - solo se escribe el campo si el dispositivo lo publico
+// de verdad, nunca con un valor por defecto. Ver firmware/README.md.
+if (msg.payload.presion !== undefined) {
+    fields.presion = msg.payload.presion;
+}
+if (msg.payload.humedad_ambiente !== undefined) {
+    fields.humedad_ambiente = msg.payload.humedad_ambiente;
+}
+
+msg.payload = [fields, { device_id: deviceId }];
+return msg;
+```
+
+(La función `calcularEstado()` de más arriba en el mismo nodo no cambia.) Deploy, y confirmar en el debug que `macetero01` sigue publicando exactamente los mismos campos que antes.
 
 Ver [`../firmware/README.md`](../firmware/README.md) § "Varios dispositivos, sensores de ambiente distintos" para qué publica cada dispositivo, y "Dar de alta un dispositivo nuevo" más arriba para el certificado/ACL/alta de `macetero02` en sí.
 
