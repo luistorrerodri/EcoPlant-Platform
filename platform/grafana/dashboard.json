@@ -2,21 +2,20 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "axx",
+    "name": "adh242x",
     "namespace": "default",
-    "uid": "uid",
-    "resourceVersion": "1788086696318011",
-    "generation": 4,
+    "uid": "c1e8f5ec-faec-438e-bb41-0219ad1dee99",
+    "resourceVersion": "1790936288839987",
+    "generation": 21,
     "creationTimestamp": "2026-08-30T10:39:24Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "deprecatedInternalID"
+      "grafana.app/deprecatedInternalID": "4341872534978560"
     },
     "annotations": {
       "grafana.app/createdBy": "user:ffwqgbqonpuyoc",
-      "grafana.app/message": "Presión del aire",
       "grafana.app/saved-from-ui": "Grafana v13.2.0 (f681b1359f)",
       "grafana.app/updatedBy": "user:ffwqgbqonpuyoc",
-      "grafana.app/updatedTimestamp": "2026-08-30T10:44:56Z"
+      "grafana.app/updatedTimestamp": "2026-10-02T10:18:08Z"
     }
   },
   "spec": {
@@ -66,7 +65,7 @@
                         "name": "ffwqglcffri80e"
                       },
                       "spec": {
-                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"humedad_suelo\")\r\n  |> filter(fn: (r) => r.device_id == \"macetero01\")"
+                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"humedad_suelo\")\r\n  |> filter(fn: (r) => r.device_id == \"${device}\")"
                       }
                     },
                     "refId": "A",
@@ -177,7 +176,123 @@
                         "name": "ffwqglcffri80e"
                       },
                       "spec": {
-                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"temp_aire\")\r\n  |> filter(fn: (r) => r.device_id == \"macetero01\")"
+                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"temp_aire\")\r\n  |> filter(fn: (r) => r.device_id == \"${device}\")"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.2.0",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic",
+                    "seriesBy": "max"
+                  },
+                  "custom": {
+                    "axisBorderShow": true,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.9,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineStyle": {
+                      "fill": "solid"
+                    },
+                    "lineWidth": 1,
+                    "pointSize": 1,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "always",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Presion",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "influxdb",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "ffwqglcffri80e"
+                      },
+                      "spec": {
+                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"presion\")\r\n  |> filter(fn: (r) => r.device_id == \"${device}\")"
                       }
                     },
                     "refId": "A",
@@ -263,15 +378,14 @@
                 "overrides": []
               }
             }
-          },
-          "transparent": true
+          }
         }
       },
-      "panel-3": {
+      "panel-4": {
         "kind": "Panel",
         "spec": {
-          "id": 3,
-          "title": "Presion",
+          "id": 4,
+          "title": "Humedad ambiente",
           "description": "",
           "links": [],
           "data": {
@@ -289,7 +403,118 @@
                         "name": "ffwqglcffri80e"
                       },
                       "spec": {
-                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"presion\")\r\n  |> filter(fn: (r) => r.device_id == \"macetero01\")"
+                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"humedad_ambiente\")\r\n  |> filter(fn: (r) => r.device_id == \"${device}\")"
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "timeseries",
+            "version": "13.2.0",
+            "spec": {
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Temperatura Suelo",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "influxdb",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "ffwqglcffri80e"
+                      },
+                      "spec": {
+                        "query": "from(bucket: \"macetero_iot\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"sensores\")\r\n  |> filter(fn: (r) => r._field == \"temp_suelo\")\r\n  |> filter(fn: (r) => r.device_id == \"${device}\")"
                       }
                     },
                     "refId": "A",
@@ -418,6 +643,32 @@
               "height": 8,
               "element": {
                 "kind": "ElementReference",
+                "name": "panel-5"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 12,
+              "y": 8,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 12,
+              "y": 16,
+              "width": 12,
+              "height": 8,
+              "element": {
+                "kind": "ElementReference",
                 "name": "panel-3"
               }
             }
@@ -431,9 +682,9 @@
     "tags": [],
     "timeSettings": {
       "timezone": "browser",
-      "from": "now-1h",
+      "from": "now-30m",
       "to": "now",
-      "autoRefresh": "",
+      "autoRefresh": "auto",
       "autoRefreshIntervals": [
         "5s",
         "10s",
@@ -450,7 +701,40 @@
       "fiscalYearStartMonth": 0
     },
     "title": "Humedad Suelo",
-    "variables": [],
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "device",
+          "current": {
+            "text": "macetero02",
+            "value": "macetero02"
+          },
+          "hide": "dontHide",
+          "refresh": "onDashboardLoad",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "influxdb",
+            "version": "v0",
+            "datasource": {
+              "name": "ffwqglcffri80e"
+            },
+            "spec": {
+              "query": "import \"influxdata/influxdb/v1\"\r\nv1.tagValues(bucket: \"macetero_iot\", tag: \"device_id\")"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "disabled",
+          "definition": "import \"influxdata/influxdb/v1\"\r\nv1.tagValues(bucket: \"macetero_iot\", tag: \"device_id\")",
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "allowCustomValue": true
+        }
+      }
+    ],
     "preferences": {
       "layout": {
         "kind": "GridLayout",
