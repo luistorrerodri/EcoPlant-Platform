@@ -451,6 +451,8 @@ from(bucket: "macetero_iot")
 
 ## 5. Acceso remoto (demo pública bajo demanda)
 
+> **Nota 2026-10-02**: el objetivo original de esta sección era enseñar el dashboard de Node-RED desde cualquier sitio — ese dashboard se retiró por completo (ver § "Limpieza de Node-RED" más abajo), así que `/ui` hoy no tiene ningún contenido detrás. La infraestructura (Caddy, el Quick Tunnel) sigue intacta y sigue funcionando tal cual se describe aquí, solo que proxyea a una página vacía. Pendiente de decidir: desmontarla, o reutilizar la ruta para otra cosa.
+
 El objetivo es poder enseñar el dashboard desde cualquier sitio sin exponer nada permanentemente: nada de abrir puertos en el router, nada corriendo salvo cuando se decide hacer una demo. La solución combina dos piezas:
 
 - **Caddy**, como proxy local que solo deja pasar `/ui` (el dashboard de Node-RED) y bloquea todo lo demás — el editor, la API de administración, InfluxDB, Grafana.

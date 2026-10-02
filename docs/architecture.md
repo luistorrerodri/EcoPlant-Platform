@@ -12,15 +12,14 @@ Esta decisión se tomó desde el inicio del proyecto, no como una refactorizaci�
 
 ## Flujo de datos
 
-1. El ESP32 lee sensores (humedad de suelo, temperatura, presión) cada 4 segundos y los publica como JSON en el topic MQTT `maceteros/{device_id}/sensores`.
+1. El ESP32 lee sensores (humedad de suelo, temperatura, y un sensor de ambiente que varía por dispositivo — presión o humedad del aire, ver más abajo) cada 4 segundos y los publica como JSON en el topic MQTT `maceteros/{device_id}/sensores`.
 2. Mosquitto (broker MQTT, corriendo en la Raspberry Pi) distribuye ese mensaje a quien esté suscrito.
 3. Node-RED, suscrito a `maceteros/+/sensores` (comodín que captura cualquier dispositivo):
    - Reenvía los campos numéricos a InfluxDB para histórico.
-   - Alimenta los gauges del dashboard en tiempo real.
-   - Evalúa si toca regar, comparando la humedad recibida contra la configuración guardada (umbral, franja horaria, tiempo desde el último riego automático).
+   - Evalúa si toca regar, comparando la humedad recibida contra la configuración guardada (umbral, franja horaria, tiempo desde el último riego automático), configuración que el propio backend le sirve mediante un sondeo periódico (ver "Catálogo de tipos de planta..." en [`../platform/README.md`](../platform/README.md)).
 4. Si la evaluación decide regar, Node-RED publica `REGAR` en `maceteros/{device_id}/comando`, construyendo el topic dinámicamente a partir del dispositivo que originó la lectura.
 5. El ESP32, suscrito a ese topic, activa el relé de la bomba durante un tiempo fijo al recibir el comando — sin evaluar nada, solo ejecuta — y publica una confirmación en su topic de estado al terminar.
-6. En paralelo, un botón en el dashboard permite publicar el mismo comando manualmente, reutilizando exactamente el mismo camino que el riego automático.
+6. En paralelo, el riego manual desde la app publica exactamente ese mismo comando (`POST /api/devices/{id}/water` → backend → MQTT), reutilizando el mismo camino que el riego automático. Node-RED no tiene ningún control propio — ver la nota "Reparto final" más abajo.
 
 ## Por qué estas tecnologías
 
@@ -101,6 +100,7 @@ user macetero01
 topic write maceteros/macetero01/sensores
 topic write maceteros/macetero01/estado
 topic read  maceteros/macetero01/comando
+topic read  maceteros/macetero01/config
 ```
 
 La asimetría es deliberada: el dispositivo **publica** sus lecturas y su estado, pero solo **lee** comandos. Emitir órdenes de riego es privilegio exclusivo de la plataforma, incluso sobre el propio dispositivo.
@@ -125,7 +125,7 @@ Esto resolvió además un problema anterior: la franja horaria de riego dependí
 
 ### Acceso a los servicios
 
-Node-RED distingue dos niveles de acceso: `adminAuth` protege el editor de flujos, y `httpNodeAuth` protege el dashboard. La separación tiene sentido de producto — el usuario final debe poder consultar su planta y regar, pero no reprogramar la lógica del sistema.
+`adminAuth` protege el editor de flujos de Node-RED — solo el operador (Luis) tiene acceso, nunca el usuario final. Desde que el dashboard de Node-RED se retiró por completo (2026-10-02, ver "Reparto final" más arriba), `httpNodeAuth` ya no protege ninguna página de cara al usuario — el usuario final consulta su planta y riega exclusivamente por la app, que tiene su propia autenticación (JWT) completamente separada de Node-RED.
 
 ### Acceso remoto
 
@@ -134,7 +134,7 @@ El dashboard puede mostrarse desde fuera de la red local bajo demanda, sin expon
 - **Cloudflare Tunnel en vez de abrir un puerto en el router**: la Pi inicia una conexión saliente hacia Cloudflare; no hay ningún puerto escuchando conexiones entrantes desde internet en el router. Elimina de raíz la superficie de ataque típica de un port-forwarding casero (escaneos automatizados de puertos abiertos), a cambio de depender de un tercero para la ruta de acceso.
 - **Un proxy local (Caddy) delante de Node-RED, no el túnel apuntando directamente a él**: Node-RED sirve el editor, la API de administración y el dashboard bajo la misma raíz, sin una separación de rutas pensada para exponer solo una parte. Caddy filtra por ruta y solo reenvía `/ui`, devolviendo 404 a cualquier otra cosa — así, aunque alguien obtenga la URL pública, lo único alcanzable es el dashboard, nunca el editor de flujos.
 
-El túnel de `/ui` (Quick Tunnel) se levanta manualmente para cada demo — mientras no está corriendo, no hay nada expuesto a internet por ahí. Con la app móvil llegó un segundo túnel, este sí permanente: dominio propio (`ecoplantplatform.com`) + túnel de Cloudflare con nombre, exponiendo solo `api.ecoplantplatform.com` → Caddy → backend. Tiene sentido que este segundo sí esté siempre activo, porque ahora hay una app de uso real detrás, no solo demos puntuales — ver [`../platform/README.md`](../platform/README.md#5-acceso-remoto-demo-pública-bajo-demanda) para ambos.
+El túnel de `/ui` (Quick Tunnel) se levanta manualmente para cada demo — mientras no está corriendo, no hay nada expuesto a internet por ahí. **Nota 2026-10-02**: desde que se retiró por completo el dashboard de Node-RED (ver "Reparto final" más arriba), `/ui` ya no tiene ningún contenido que mostrar — la infraestructura (Caddy, el Quick Tunnel) se ha dejado tal cual, sin desmontar, pero hoy es una demo de una página vacía. Pendiente de decidir: desmontarla del todo, o reutilizar esa ruta para otra cosa. Con la app móvil llegó un segundo túnel, este sí permanente: dominio propio (`ecoplantplatform.com`) + túnel de Cloudflare con nombre, exponiendo solo `api.ecoplantplatform.com` → Caddy → backend. Tiene sentido que este segundo sí esté siempre activo, porque ahora hay una app de uso real detrás, no solo demos puntuales — ver [`../platform/README.md`](../platform/README.md#5-acceso-remoto-demo-pública-bajo-demanda) para ambos.
 
 Grafana e InfluxDB emplean su propia autenticación, con el registro de usuarios deshabilitado y sin acceso anónimo.
 
@@ -205,7 +205,7 @@ Es el primer punto del proyecto donde contenido real (la foto) sale hacia un ser
 
 ## Backend multiusuario
 
-Node-RED resuelve bien la orquestación (sensores, lógica de riego, un dashboard), pero no tiene ni tenía previsto tener un modelo de usuarios: cualquiera con la contraseña del `httpNodeAuth` ve y controla todo. El backend nuevo (FastAPI + PostgreSQL, en `backend/`) añade esa capa por delante, sin sustituir nada — es una pieza aditiva, un peer de Node-RED, no un reemplazo.
+Node-RED resuelve bien la orquestación (sensores, lógica de riego), pero no tiene ni tenía previsto tener un modelo de usuarios — en su momento, cuando todavía tenía un dashboard propio, cualquiera con la contraseña del `httpNodeAuth` veía y controlaba todos los dispositivos por igual, sin ningún concepto de "esta planta es mía". El backend nuevo (FastAPI + PostgreSQL, en `backend/`) añade esa capa por delante, sin sustituir nada de Node-RED — es una pieza aditiva, un peer de Node-RED, no un reemplazo (y acabó, con el tiempo, asumiendo también todo el control de cara al usuario que antes vivía en el dashboard de Node-RED, hoy retirado — ver "Reparto final" más arriba).
 
 **Por qué una base de datos relacional aparte, y no extender el *context store* de Node-RED**: el modelo `usuario → ubicación → dispositivo` es fundamentalmente relacional (claves foráneas, restricciones de unicidad, permisos por propietario) — forzar eso sobre un almacén de pares clave-valor pensado para configuración de dispositivos habría sido más frágil que levantar una base de datos que ya está diseñada para este problema. PostgreSQL en concreto, y no SQLite, porque el resto de la plataforma ya trata "instalar el servidor de base de datos real como servicio systemd" como la norma (InfluxDB es el precedente directo), y porque SQLite con varios workers de `uvicorn` tiene un problema real de bloqueo de escritura de un solo archivo.
 

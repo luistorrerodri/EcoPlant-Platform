@@ -1,5 +1,7 @@
 # Hardware
 
+> Este documento describe el hardware de **`macetero01`** en concreto (BOM, pinout, montaje) — el primer dispositivo construido y el más detallado. `macetero02` (DHT22 en vez de BMP280, pines distintos) y cualquier dispositivo futuro tienen su propia fila en la tabla comparativa de [`../firmware/README.md`](../firmware/README.md) § "Varios dispositivos, sensores de ambiente distintos", pero no un documento de hardware/montaje físico propio todavía.
+
 ## Lista de componentes (BOM)
 
 | Componente | Modelo / referencia | Función | Notas |

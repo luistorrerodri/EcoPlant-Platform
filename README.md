@@ -6,12 +6,12 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 
 ## Qué hace
 
-- Mide humedad de suelo, temperatura y presión atmosférica en tiempo real
+- Mide humedad de suelo y temperatura en tiempo real; el sensor de ambiente varía por dispositivo (presión atmosférica o humedad del aire, según el sensor que lleve cada uno — ver [`firmware/README.md`](firmware/README.md))
 - Decide automáticamente cuándo regar según un umbral y una franja horaria configurables, **sin que la lógica viva en el microcontrolador**
 - Verifica que cada orden de riego se ha ejecutado realmente, en lugar de asumirlo
 - Detecta cuándo un dispositivo se desconecta de forma inesperada
 - Comunicación cifrada con autenticación y autorización por dispositivo
-- Permite riego manual bajo demanda desde un dashboard web
+- Permite riego manual bajo demanda desde la app móvil
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
 - API multiusuario propia (registro, ubicaciones, dispositivos), consumida por una app móvil real (Android, misma base para iOS)
@@ -27,25 +27,23 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 ## Arquitectura
 
 ```
-ESP32 (sensores + bomba)
-        │  maceteros/{device_id}/sensores
-        │  maceteros/{device_id}/comando
-        │  maceteros/{device_id}/estado
-        ▼
-   Mosquitto (broker MQTT)
-        │
-        ▼
-     Node-RED  ──────────────┐
-   (lógica de decisión)      │
-        │                    ▼
-        ▼                InfluxDB (histórico)
-  Dashboard web                │
-  (control manual,             ▼
-   parámetros)              Grafana
-                          (visualización)
+     App móvil                              Grafana
+(control, configuración,                  (histórico)
+    diagnóstico)                               ▲
+       │ HTTPS                                 │
+       ▼                                   InfluxDB
+Backend API (FastAPI + PostgreSQL)              ▲
+       │          ▲                            │
+       │ comando  │ config (polling 60s)        │
+       ▼          │                            │
+   Mosquitto (broker MQTT, mTLS) ────────► Node-RED
+       ▲                              (decide riego automático,
+       │ sensores / estado             formatea datos para InfluxDB)
+       │
+  ESP32 (sensores + bomba)
 ```
 
-Todo corre sobre una Raspberry Pi en red local. El ESP32 **solo mide y ejecuta comandos** — nunca decide. La decisión de regar (umbral de humedad, franja horaria, tiempo desde el último riego) se evalúa en Node-RED, que publica un comando MQTT cuando corresponde. Esta separación es la decisión de arquitectura central del proyecto: permite cambiar la lógica de riego, añadir machine learning más adelante, o gestionar decenas de dispositivos, sin volver a flashear ni un solo ESP32.
+Todo corre sobre una Raspberry Pi en red local. El ESP32 **solo mide y ejecuta comandos** — nunca decide. La decisión de regar automático (umbral de humedad, franja horaria, tiempo desde el último riego) se evalúa en Node-RED a partir de la configuración que el backend le sirve (sondeada cada 60s desde Postgres), y publica un comando MQTT cuando corresponde; el riego manual y toda la configuración pasan por la app, no por Node-RED. Esta separación es la decisión de arquitectura central del proyecto: permite cambiar la lógica de riego, añadir machine learning más adelante, o gestionar decenas de dispositivos, sin volver a flashear ni un solo ESP32. Node-RED no tiene interfaz propia — es pura orquestación entre MQTT, InfluxDB y el backend (ver [`docs/architecture.md`](docs/architecture.md)).
 
 Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decisión de diseño.
 

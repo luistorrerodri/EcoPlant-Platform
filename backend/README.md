@@ -1,6 +1,6 @@
 # Backend API
 
-API multiusuario (FastAPI + PostgreSQL) para EcoPlant Platform: registro/login, ubicaciones, y reclamación/control de dispositivos. Es una pieza nueva y aditiva — Node-RED sigue orquestando el riego y sirviendo su propio dashboard en `/ui`; este servicio añade la capa de usuarios y permisos por delante, sin sustituir nada. Detalle de las decisiones de diseño en [`../docs/architecture.md`](../docs/architecture.md#backend-multiusuario).
+API multiusuario (FastAPI + PostgreSQL) para EcoPlant Platform: registro/login, ubicaciones, y reclamación/control de dispositivos. Es una pieza nueva y aditiva — Node-RED sigue orquestando el riego (ya sin dashboard propio, retirado por redundante frente a la app — ver [`../docs/architecture.md`](../docs/architecture.md)); este servicio añade la capa de usuarios y permisos, y es hoy el único control real de cara al usuario. Detalle de las decisiones de diseño en [`../docs/architecture.md`](../docs/architecture.md#backend-multiusuario).
 
 ## Requisitos
 
