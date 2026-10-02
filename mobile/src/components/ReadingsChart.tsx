@@ -8,6 +8,7 @@ const FIELD_LABELS: Record<ReadingPoint["field"], string> = {
   temp_aire: "Temperatura (°C)",
   presion: "Presión (hPa)",
   temp_suelo: "Temperatura de suelo (°C)",
+  humedad_ambiente: "Humedad ambiente (%)",
 };
 
 const LINE_COLOR = "#2e7d32";

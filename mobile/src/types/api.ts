@@ -60,7 +60,7 @@ export interface PlantTypeOut {
 
 export interface ReadingPoint {
   time: string;
-  field: "humedad_suelo" | "temp_aire" | "presion" | "temp_suelo";
+  field: "humedad_suelo" | "temp_aire" | "presion" | "temp_suelo" | "humedad_ambiente";
   value: number;
 }
 
@@ -75,6 +75,7 @@ export interface LatestReadingsOut {
   temp_suelo: number | null;
   temp_aire: number | null;
   presion: number | null;
+  humedad_ambiente: number | null;
 }
 
 export type HealthVerdict = "sana" | "revisar_riego" | "revisar_drenaje" | "datos_insuficientes";

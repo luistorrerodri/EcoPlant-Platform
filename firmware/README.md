@@ -2,6 +2,20 @@
 
 Firmware del ESP32: lee sensores, los publica por MQTT y ejecuta los comandos de riego que recibe de la plataforma. No toma decisiones propias sobre cuándo regar.
 
+## Varios dispositivos, sensores de ambiente distintos
+
+No hay un único firmware para todos los maceteros — cada dispositivo físico tiene su propio `.ino` y su propio proyecto de PlatformIO (dos sketches no pueden compartir proyecto, ambos definen `setup()`/`loop()`), pero comparten *exactamente* el mismo esqueleto de red/seguridad/riego (WiFiManager, mTLS, config por servidor, riego no bloqueante) — solo difiere la parte de lectura de sensores de ambiente y lo que se publica de ella.
+
+| Dispositivo | Fichero de referencia | Sensor de ambiente | Campos que publica | `platformio.ini` |
+|---|---|---|---|---|
+| `macetero01` | `macetero_produccion_6.ino` | BMP280 (I2C) | `temp_aire`, `presion` — **sin** `humedad_ambiente` (el BMP280 no mide humedad) | `platformio.ini` |
+| `macetero02` | `macetero02_dht22.ino` | DHT22 (pin digital) | `temp_aire`, `humedad_ambiente` — **sin** `presion` (el DHT22 no mide presión) | `platformio_macetero02.ini` |
+| futuro (BME280 real) | pendiente, cuando llegue el sensor | BME280 (I2C) | `temp_aire`, `presion`, `humedad_ambiente` — los tres a la vez | pendiente |
+
+**Un campo que el sensor de ese dispositivo no mide nunca se publica como falso.** Ni se omite la clave del JSON, ni se manda un `0`/`null` fabricado — eso induciría a pensar que es un dato real. La plataforma (Node-RED → InfluxDB → backend → app) ya está pensada para campos opcionales por dispositivo: lo que no se publica, simplemente no aparece, y la app muestra "—" en vez de un valor inventado. Ver [`../docs/architecture.md`](../docs/architecture.md) y [`../docs/troubleshooting.md`](../docs/troubleshooting.md) para el detalle de ese mecanismo.
+
+Cuando llegue un BME280 de verdad (no mal etiquetado, ver troubleshooting #1) y demuestre que funciona bien, la idea es que ese sea el sensor "definitivo" — mide los tres a la vez, sin tener que elegir entre presión y humedad como con el BMP280/DHT22 actuales.
+
 ## Requisitos
 
 - [PlatformIO](https://platformio.org/) (extensión de VS Code o CLI)
@@ -92,7 +106,7 @@ pio device monitor       # monitor serie (115200 baudios)
 
 ## Verificación tras el flasheo
 
-Con el monitor serie abierto, la secuencia esperada al arrancar es:
+Con el monitor serie abierto, la secuencia esperada al arrancar es (ejemplo de `macetero01`; en `macetero02` la primera línea es `DHT22 listo` — o el aviso de que no hay lectura válida todavía, ver más abajo — en vez de `BMP280 listo`):
 
 ```
 BMP280 listo
@@ -152,5 +166,5 @@ El firmware imprime el heap libre y su mínimo histórico en cada publicación. 
 - **El relé se inicializa en LOW como primera instrucción** del `setup()`, de modo que un reinicio inesperado nunca deja la bomba encendida.
 - **El riego es no bloqueante**: el dispositivo sigue publicando y atendiendo MQTT mientras la bomba está activa. Una orden que llegue durante un riego en curso se descarta en lugar de encolarse.
 - **Tope de seguridad**: la duración efectiva del riego se acota a un máximo absoluto (`TIEMPO_RIEGO_MAX`), de modo que un valor de configuración erróneo no puede dejar la bomba encendida indefinidamente.
-- **GPIO 25 y 26 están reservados** para un futuro caudalímetro por pulsos.
-- **DS18B20 en GPIO4**, enterrado en la tierra junto a la sonda de humedad de suelo. Necesita una resistencia de pull-up de 4.7kΩ entre el pin de datos y 3.3V — sin ella, `dsSensors.getDeviceCount()` da 0 y el firmware sigue funcionando pero sin publicar `temp_suelo`.
+- **Los pines no son los mismos entre dispositivos** — cada ESP32 lleva su propio cableado real, el `.ino` de cada uno es la fuente de verdad, no asumir que coinciden. En `macetero01`: GPIO 25 y 26 reservados para un futuro caudalímetro por pulsos, DS18B20 en GPIO4. En `macetero02`: la bomba usa GPIO26 (no reservado ahí), el DHT22 va en GPIO4, el DS18B20 se movió a GPIO18, y GPIO35 queda reservado para un futuro sensor de nivel de depósito.
+- **DS18B20**, enterrado en la tierra junto a la sonda de humedad de suelo. Necesita una resistencia de pull-up de 4.7kΩ entre el pin de datos y 3.3V — sin ella, `dsSensors.getDeviceCount()` da 0 y el firmware sigue funcionando pero sin publicar `temp_suelo`.

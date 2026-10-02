@@ -108,6 +108,42 @@ ssh piluis@192.168.1.140 'chmod 600 ~/certs/nodered.key'
 
 **Revocación**: sin una CRL (lista de revocación), "revocar" un dispositivo hoy significa quitar su bloque de `/etc/mosquitto/acl` — el certificado seguiría siendo válido para el TLS, pero sin ACL no podría publicar ni leer nada. Si la clave privada de un dispositivo se viera comprometida de verdad, la única garantía real es regenerar la CA. Añadir una CRL queda como mejora futura.
 
+### Dar de alta un dispositivo nuevo (p. ej. `macetero02`)
+
+Tres pasos, por este orden — los dos primeros son en la Pi, el tercero desde Swagger:
+
+**1. Certificado de cliente**, mismo procedimiento que arriba, solo que con el `cn` del dispositivo nuevo:
+
+```bash
+cd ~/certs/clients
+cn=macetero02
+openssl genrsa -out "$cn.key" 2048
+openssl req -new -key "$cn.key" -out "$cn.csr" \
+  -subj "/C=ES/ST=Alicante/L=Aspe/O=EcoPlant/CN=$cn"
+openssl x509 -req -in "$cn.csr" -CA ../ca.crt -CAkey ../ca.key -CAcreateserial \
+  -out "$cn.crt" -days 730
+openssl verify -CAfile ../ca.crt "$cn.crt"
+```
+
+`macetero02.crt`/`macetero02.key` van directos al firmware de ese dispositivo (`secrets.h`, `CLIENT_CERT`/`CLIENT_KEY`) — no se quedan en la Pi, igual que con `macetero01`.
+
+**2. Bloque de ACL**, en `/etc/mosquitto/acl` (el `user` debe coincidir exactamente con el `CN` de arriba):
+
+```
+user macetero02
+topic write maceteros/macetero02/sensores
+topic write maceteros/macetero02/estado
+topic read  maceteros/macetero02/comando
+```
+
+```bash
+sudo systemctl restart mosquitto
+```
+
+**3. Alta en el backend**, por Swagger (`/api/docs`), como usuario admin: `POST /api/admin/devices/seed` con `{"device_id": "macetero02", "name": "..."}` → guarda el `claim_code` (solo se muestra una vez). Luego, desde la app, "+ Añadir dispositivo" con ese `device_id` + `claim_code`, igual que con `macetero01`.
+
+Hasta que no se complete el paso 3, el dispositivo puede conectar y publicar por MQTT sin problema (pasos 1-2 ya se lo permiten), pero Node-RED lo ignora con un aviso en el log (`Sin configuración para macetero02, no se evalúa riego`) — no es un error, es que todavía no tiene dueño ni configuración de riego.
+
 ### Configuración final
 
 En `/etc/mosquitto/conf.d/iot.conf`:
@@ -808,6 +844,22 @@ sudo systemctl restart ecoplant-backend
 El endpoint nuevo es `GET /api/devices/{id}/latest-readings` (valor real de cada campo, sin agregar — mismo patrón que ya usaba `/calibrate`): se añadió porque `/readings` agrega a `1m`/`10m`/`1h` según el rango pedido, y "el último punto" de ahí podía tardar hasta 10 minutos en reflejar un cambio real — se notaba mucho probando el sensor en vivo (el OLED cambiaba, la app no). Verificar por Swagger: `GET /api/devices/macetero01/latest-readings` debe devolver un valor por campo (`humedad_suelo`, `temp_suelo`, `temp_aire`, `presion`) que coincida con lo que marca el dispositivo en ese momento, no con un promedio de los últimos minutos.
 
 Catálogo: tras el `alembic upgrade head`, `GET /api/plant-types` debe devolver 43 entradas, ninguna con nombre científico en latín (p. ej. `Pata de elefante`, no `Beaucarnea recurvata (pata de elefante)`), y dos entradas distintas para "planta del dinero" (`Árbol del dinero`, categoría `arbol`, y `Planta del dinero`, categoría `colgante`) — son especies distintas que comparten apodo popular, ver `docs/troubleshooting.md`.
+
+### Segundo dispositivo con otro sensor de ambiente (`macetero02`, DHT22) — campo `humedad_ambiente`
+
+Puramente aditivo, no migración. `humedad_ambiente` se suma a los campos que la API ya sabe consultar:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+sudo systemctl restart ecoplant-backend
+```
+
+**Falta la parte de Node-RED** (nodo "Formatear para InfluxDB"): necesita escribir `humedad_ambiente` cuando el dispositivo lo publique, sin escribir `presion` cuando no la publique (`macetero02` no tiene BMP280/BME280) — **ninguno de los dos campos debe rellenarse con `0` para el dispositivo que no lo tenga**, deja el campo tal cual venga en `msg.payload` (presente o `undefined`), no le pongas un valor por defecto. Pendiente de ver el código actual de ese nodo para dar el diff exacto, en vez de adivinarlo y arriesgarse a tocar algo de `macetero01`.
+
+Ver [`../firmware/README.md`](../firmware/README.md) § "Varios dispositivos, sensores de ambiente distintos" para qué publica cada dispositivo, y "Dar de alta un dispositivo nuevo" más arriba para el certificado/ACL/alta de `macetero02` en sí.
+
+Verificar: `GET /api/devices/macetero02/latest-readings` debe devolver `humedad_ambiente` con un valor real y `presion: null`; `GET /api/devices/macetero01/latest-readings` debe seguir exactamente igual que antes (`presion` con valor real, `humedad_ambiente: null`) — confirma que añadir el campo nuevo no afectó al dispositivo que ya funcionaba.
 
 ---
 

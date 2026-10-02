@@ -82,3 +82,4 @@ class LatestReadingsOut(BaseModel):
     temp_suelo: float | None
     temp_aire: float | None
     presion: float | None
+    humedad_ambiente: float | None

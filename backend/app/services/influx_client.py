@@ -7,7 +7,12 @@ _client = InfluxDBClient(
 )
 _query_api = _client.query_api()
 
-NUMERIC_FIELDS = ["humedad_suelo", "temp_aire", "presion", "temp_suelo"]
+# No todos los dispositivos publican todos estos campos (depende del
+# sensor de ambiente que lleve cada uno - ver firmware/README.md): la
+# consulta de un campo que un dispositivo concreto nunca publica
+# simplemente no devuelve puntos para el, sin error, misma logica que
+# ya aplicaba a temp_suelo cuando el DS18B20 no estaba conectado.
+NUMERIC_FIELDS = ["humedad_suelo", "temp_aire", "presion", "temp_suelo", "humedad_ambiente"]
 
 
 def _aggregate_window(hours: int) -> str:

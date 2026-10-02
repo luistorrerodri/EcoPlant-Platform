@@ -13,9 +13,14 @@ type Props = NativeStackScreenProps<LocationsStackParamList, "DeviceDetail">;
 
 type Category = "suelo" | "ambiente";
 
+// Campos "candidatos" por categoria - no todos los dispositivos
+// publican todos (depende de su sensor de ambiente: BMP280 da presion,
+// DHT22 da humedad_ambiente, ninguno da los dos). Tanto el resumen como
+// las graficas se filtran a lo que el dispositivo tenga de verdad, ver
+// mas abajo - nunca se rellena un hueco con un 0 falso.
 const FIELDS_BY_CATEGORY: Record<Category, ReadingPoint["field"][]> = {
   suelo: ["humedad_suelo", "temp_suelo"],
-  ambiente: ["temp_aire", "presion"],
+  ambiente: ["temp_aire", "presion", "humedad_ambiente"],
 };
 
 function formatHumedad(value: number | null): string {
@@ -33,6 +38,7 @@ const SUMMARY_BY_CATEGORY: Record<
   ambiente: [
     { field: "temp_aire", icon: "🌡️", decimals: 1, unit: "°C" },
     { field: "presion", icon: "🌬️", decimals: 0, unit: " hPa" },
+    { field: "humedad_ambiente", icon: "💦", decimals: 0, unit: "%" },
   ],
 };
 
@@ -109,10 +115,16 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
   });
 
   const points = readingsQuery.data?.points ?? [];
-  const summaryItems = SUMMARY_BY_CATEGORY[selectedCategory].map((item) => ({
-    ...item,
-    value: latestQuery.data?.[item.field] ?? null,
-  }));
+  // Solo se muestra lo que el dispositivo publica de verdad (ver el
+  // porque en FIELDS_BY_CATEGORY, arriba) - un campo sin dato se oculta
+  // del todo en vez de enseñar un "—" permanente, que acabaria leyendose
+  // como "sensor roto" en un dispositivo que simplemente no lo tiene.
+  const summaryItems = SUMMARY_BY_CATEGORY[selectedCategory]
+    .map((item) => ({ ...item, value: latestQuery.data?.[item.field] ?? null }))
+    .filter((item) => item.value != null);
+  const chartFields = FIELDS_BY_CATEGORY[selectedCategory].filter((field) =>
+    points.some((p) => p.field === field)
+  );
 
   const waterMutation = useMutation({
     mutationFn: () => devicesApi.waterDevice(deviceId),
@@ -172,7 +184,7 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       <View style={styles.summaryRow}>
         {summaryItems.map((item) => (
           <Text key={item.field} style={styles.summaryItem}>
-            {item.icon} {item.value != null ? `${item.value.toFixed(item.decimals)}${item.unit}` : "—"}
+            {item.icon} {item.value!.toFixed(item.decimals)}{item.unit}
           </Text>
         ))}
       </View>
@@ -234,7 +246,7 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       {readingsQuery.isLoading ? (
         <ActivityIndicator style={styles.loading} />
       ) : (
-        FIELDS_BY_CATEGORY[selectedCategory].map((field) => (
+        chartFields.map((field) => (
           <ReadingsChart key={field} points={points} field={field} hours={selectedHours} />
         ))
       )}

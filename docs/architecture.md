@@ -142,7 +142,9 @@ Las credenciales de los nodos de Node-RED se cifran con una clave propia (`crede
 
 - **Measurement**: `sensores`
 - **Tag**: `device_id`
-- **Fields**: `humedad_suelo`, `humedad_suelo_raw`, `temp_aire`, `presion`, `temp_suelo`, `estado`
+- **Fields**: `humedad_suelo`, `humedad_suelo_raw`, `temp_aire`, `presion`, `temp_suelo`, `estado`, `humedad_ambiente`
+
+**No todos los dispositivos publican todos los campos de ambiente, a propósito.** `macetero01` lleva un BMP280 (`temp_aire`, `presion`, sin humedad); `macetero02` lleva un DHT22 (`temp_aire`, `humedad_ambiente`, sin presión) — ver [`../firmware/README.md`](../firmware/README.md) para qué sensor lleva cada dispositivo. Un campo que un dispositivo no mide nunca se publica con un valor falso (ni `0` ni `null` fabricado) — simplemente no aparece en su JSON, y como InfluxDB no exige un esquema fijo por punto, esa ausencia no genera ningún error en ningún punto de la cadena (Node-RED → InfluxDB → `NUMERIC_FIELDS` del backend → la app, que oculta el dato en vez de enseñar un "—" permanente o un cero). Es la misma lógica que ya aplicaba a `temp_suelo` cuando el DS18B20 está desconectado, extendida ahora a "distintos dispositivos pueden tener distintos sensores", no solo "un sensor puede fallar".
 
 `humedad_suelo_raw` es la lectura cruda del ADC (sin convertir a porcentaje) — no se expone en el histórico ni en las gráficas de la app (no está en la lista blanca `NUMERIC_FIELDS` del backend), solo la usa internamente el endpoint de calibración del sensor (`POST /api/devices/{id}/calibrate`, ver "Calibración del sensor de humedad" más abajo) para capturar el punto seco/húmedo en el momento.
 
