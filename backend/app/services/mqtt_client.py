@@ -118,7 +118,12 @@ def publish_water_command(device_id: str) -> None:
 
 
 def publish_device_config(
-    device_id: str, humedad_min: int, humedad_max: int, soil_dry_raw: int, soil_wet_raw: int
+    device_id: str,
+    humedad_min: int,
+    humedad_max: int,
+    soil_dry_raw: int,
+    soil_wet_raw: int,
+    duracion_riego_ms: int,
 ) -> None:
     # Retained: un dispositivo que se reinicia recibe la ultima config
     # conocida al reconectar, sin esperar a que alguien vuelva a tocar
@@ -131,6 +136,7 @@ def publish_device_config(
         "humedadMax": humedad_max,
         "soilDry": soil_dry_raw,
         "soilWet": soil_wet_raw,
+        "duracionRiegoMs": duracion_riego_ms,
     })
     result = _client.publish(f"maceteros/{device_id}/config", payload, qos=1, retain=True)
     result.wait_for_publish(timeout=5)

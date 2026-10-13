@@ -110,6 +110,7 @@ def update_device(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tipo de planta no encontrado")
         device.plant_type_id = plant_type.id
     humedad_changed = data.humedad_min is not None or data.humedad_max is not None
+    config_changed = humedad_changed or data.duracion_riego_ms is not None
     if data.humedad_min is not None:
         device.humedad_min = data.humedad_min
     if data.humedad_max is not None:
@@ -124,12 +125,18 @@ def update_device(
         device.environment = data.environment
     db.commit()
     db.refresh(device)
-    if humedad_changed:
-        # El dispositivo recibe sus propios umbrales por MQTT para poder
-        # calcular el estado de su pantalla OLED sin decidir nada por su
-        # cuenta - ver app/services/mqtt_client.py::publish_device_config.
+    if config_changed:
+        # El dispositivo recibe sus propios umbrales y duracion de riego
+        # por MQTT para poder calcular el estado de su pantalla OLED y
+        # regar la duracion correcta sin decidir nada por su cuenta - ver
+        # app/services/mqtt_client.py::publish_device_config.
         mqtt_client.publish_device_config(
-            device_id, device.humedad_min, device.humedad_max, device.soil_dry_raw, device.soil_wet_raw
+            device_id,
+            device.humedad_min,
+            device.humedad_max,
+            device.soil_dry_raw,
+            device.soil_wet_raw,
+            device.duracion_riego_ms,
         )
     return device
 
@@ -187,7 +194,12 @@ def calibrate_device(
     db.commit()
     db.refresh(device)
     mqtt_client.publish_device_config(
-        device_id, device.humedad_min, device.humedad_max, device.soil_dry_raw, device.soil_wet_raw
+        device_id,
+        device.humedad_min,
+        device.humedad_max,
+        device.soil_dry_raw,
+        device.soil_wet_raw,
+        device.duracion_riego_ms,
     )
     return device
 

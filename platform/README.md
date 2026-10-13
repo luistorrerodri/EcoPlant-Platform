@@ -933,6 +933,26 @@ Al revisar la escalabilidad de cara a un tercer dispositivo, aparecieron dos res
 
 > `platform/nodered/flows.json` resincronizado (2026-10-02) tras esta limpieza — ya no tiene ninguno de los nodos borrados.
 
+### Duración de riego real por dispositivo, y filtro de lecturas implausibles (2026-10-13)
+
+Dos fixes encontrados tras varios días de uso real con `macetero02` — detalle completo en `docs/troubleshooting.md` #35 y #36.
+
+**1. La duración de riego nunca llegaba al ESP32** (puramente cosmética hasta hoy: se veía bien en la app/API/BD, pero el firmware regaba siempre 9s fijos). Backend puramente aditivo, sin migración:
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+sudo systemctl restart ecoplant-backend
+```
+
+Requiere además **reflashear los dos dispositivos** (`macetero_produccion_6.ino` y `macetero02_dht22.ino`, ambos con el mismo cambio: nueva variable `duracionRiegoCfg` recibida por `mqtt_topic_config`). Tras el reinicio del backend, cualquier dispositivo ya configurado necesita un guardado más en `DeviceConfigScreen` (aunque sea el mismo valor) para que se dispare la primera publicación retenida con el campo `duracionRiegoMs` — sin eso, el dispositivo sigue con el valor de arranque (`TIEMPO_RIEGO = 9000ms`) hasta que alguien toque su configuración.
+
+Verificar: cronometrar un riego real (no solo mirar la API) y confirmar que dura lo configurado en `DeviceConfigScreen`, no 9 segundos fijos — el log serie del dispositivo imprime `duracionRiegoMs=` al aplicar la config recibida.
+
+**2. Filtro de rango plausible por campo** (`influx_client.PLAUSIBLE_RANGES`), aplicado como filtro Flux en `get_readings()`/`get_latest_value()` — mismo `git pull` + `systemctl restart` de arriba, sin migración. Además, el firmware de `macetero02` descarta ahora una lectura del DHT22 fuera de rango (`t < -20 || t > 60`, `h < 0 || h > 100`) antes de publicarla, igual que ya hacía `temp_suelo` con el DS18B20 desconectado.
+
+Verificar: `GET /api/devices/macetero02/latest-readings` y el resumen de salud ya no deberían reflejar picos como ~121°C aunque existan puntos así en el histórico guardado antes del fix.
+
 ---
 
 ## Verificación del stack completo

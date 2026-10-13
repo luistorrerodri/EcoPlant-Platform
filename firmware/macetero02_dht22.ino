@@ -92,6 +92,10 @@ float humedadMinCfg = 36;
 float humedadMaxCfg = 65;
 int soilDryCfg = SOIL_DRY_DEFAULT;
 int soilWetCfg = SOIL_WET_DEFAULT;
+// Duracion de riego real, recibida por MQTT desde el servidor - TIEMPO_RIEGO
+// se queda solo como valor de arranque hasta que llegue la primera config
+// (coincide con el server_default de Postgres, ver backend/app/models/device.py).
+unsigned long duracionRiegoCfg = TIEMPO_RIEGO;
 
 // ---------- TIMING ----------
 unsigned long lastSend = 0;
@@ -135,7 +139,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
 
   if (topicStr == mqtt_topic_config) {
-    StaticJsonDocument<192> cfgDoc;
+    StaticJsonDocument<224> cfgDoc;
     DeserializationError err = deserializeJson(cfgDoc, mensaje);
     if (err) {
       Serial.print("Config recibida invalida: ");
@@ -146,6 +150,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (cfgDoc.containsKey("humedadMax")) humedadMaxCfg = cfgDoc["humedadMax"];
     if (cfgDoc.containsKey("soilDry")) soilDryCfg = cfgDoc["soilDry"];
     if (cfgDoc.containsKey("soilWet")) soilWetCfg = cfgDoc["soilWet"];
+    if (cfgDoc.containsKey("duracionRiegoMs")) duracionRiegoCfg = cfgDoc["duracionRiegoMs"];
     Serial.print("Config aplicada: humedadMin=");
     Serial.print(humedadMinCfg);
     Serial.print(" humedadMax=");
@@ -153,7 +158,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print(" soilDry=");
     Serial.print(soilDryCfg);
     Serial.print(" soilWet=");
-    Serial.println(soilWetCfg);
+    Serial.print(soilWetCfg);
+    Serial.print(" duracionRiegoMs=");
+    Serial.println(duracionRiegoCfg);
   }
 }
 
@@ -442,7 +449,12 @@ void loop() {
   }
 
   // ---- Parada del riego ----
-  unsigned long limiteRiego = min((unsigned long)TIEMPO_RIEGO, (unsigned long)TIEMPO_RIEGO_MAX);
+  // duracionRiegoCfg es la duracion real configurada por el servidor
+  // (por tipo de planta, o ajustada a mano) - TIEMPO_RIEGO_MAX sigue
+  // siendo el tope de seguridad absoluto, independiente de lo que
+  // llegue por config, para que un valor erroneo no deje la bomba
+  // encendida indefinidamente.
+  unsigned long limiteRiego = min(duracionRiegoCfg, (unsigned long)TIEMPO_RIEGO_MAX);
 
   if (riegoEnCurso && (millis() - riegoInicioMs >= limiteRiego)) {
     digitalWrite(BOMBA_PIN, LOW);
@@ -470,6 +482,11 @@ void loop() {
 
     float t = dht.readTemperature();
     float h = dht.readHumidity();
+    // Lectura implausible (fallo de bus del DHT22, no un dato real -
+    // p.ej. ~121C) se descarta igual que un DS18B20 desconectado: se
+    // deja en NAN en vez de publicarse como si fuera valido.
+    if (!isnan(t) && (t < -20 || t > 60)) t = NAN;
+    if (!isnan(h) && (h < 0 || h > 100)) h = NAN;
 
     int soilRaw = analogRead(SOIL_PIN);
     int soilPct = soilMoisturePercent(soilRaw);

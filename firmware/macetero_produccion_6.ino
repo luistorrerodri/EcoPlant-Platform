@@ -97,6 +97,10 @@ float humedadMaxCfg = 65;
 // exige reflashear: se hace desde la app (pantalla "Calibrar sensor").
 int soilDryCfg = SOIL_DRY_DEFAULT;
 int soilWetCfg = SOIL_WET_DEFAULT;
+// Duracion de riego real, recibida por MQTT desde el servidor - TIEMPO_RIEGO
+// se queda solo como valor de arranque hasta que llegue la primera config
+// (coincide con el server_default de Postgres, ver backend/app/models/device.py).
+unsigned long duracionRiegoCfg = TIEMPO_RIEGO;
 
 // ---------- TIMING ----------
 unsigned long lastSend = 0;
@@ -147,7 +151,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     // El servidor decide los umbrales (segun el tipo de planta elegido
     // en la app); este dispositivo solo los guarda para calcular el
     // estado de su propia pantalla, no decide nada por su cuenta.
-    StaticJsonDocument<192> cfgDoc;
+    StaticJsonDocument<224> cfgDoc;
     DeserializationError err = deserializeJson(cfgDoc, mensaje);
     if (err) {
       Serial.print("Config recibida invalida: ");
@@ -158,6 +162,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (cfgDoc.containsKey("humedadMax")) humedadMaxCfg = cfgDoc["humedadMax"];
     if (cfgDoc.containsKey("soilDry")) soilDryCfg = cfgDoc["soilDry"];
     if (cfgDoc.containsKey("soilWet")) soilWetCfg = cfgDoc["soilWet"];
+    if (cfgDoc.containsKey("duracionRiegoMs")) duracionRiegoCfg = cfgDoc["duracionRiegoMs"];
     Serial.print("Config aplicada: humedadMin=");
     Serial.print(humedadMinCfg);
     Serial.print(" humedadMax=");
@@ -165,7 +170,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print(" soilDry=");
     Serial.print(soilDryCfg);
     Serial.print(" soilWet=");
-    Serial.println(soilWetCfg);
+    Serial.print(soilWetCfg);
+    Serial.print(" duracionRiegoMs=");
+    Serial.println(duracionRiegoCfg);
   }
 }
 
@@ -469,9 +476,11 @@ void loop() {
   }
 
   // ---- Parada del riego ----
-  // Se evalúa en cada vuelta del loop, sin bloquear. El tope de seguridad
-  // garantiza el apagado aunque TIEMPO_RIEGO tuviera un valor erróneo.
-  unsigned long limiteRiego = min((unsigned long)TIEMPO_RIEGO, (unsigned long)TIEMPO_RIEGO_MAX);
+  // Se evalúa en cada vuelta del loop, sin bloquear. duracionRiegoCfg es
+  // la duracion real configurada por el servidor (por tipo de planta, o
+  // ajustada a mano); el tope de seguridad garantiza el apagado aunque
+  // llegara un valor erroneo por config.
+  unsigned long limiteRiego = min(duracionRiegoCfg, (unsigned long)TIEMPO_RIEGO_MAX);
 
   if (riegoEnCurso && (millis() - riegoInicioMs >= limiteRiego)) {
     digitalWrite(BOMBA_PIN, LOW);
