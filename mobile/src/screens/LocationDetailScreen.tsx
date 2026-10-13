@@ -157,7 +157,7 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
         renderItem={({ item }) => (
           <DeviceCard
             device={item}
-            onPress={() => navigation.navigate("DeviceDetail", { deviceId: item.device_id })}
+            onPress={() => navigation.navigate("DeviceHealth", { deviceId: item.device_id })}
           />
         )}
       />

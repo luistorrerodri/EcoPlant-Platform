@@ -59,9 +59,30 @@ function mergeDiagnosis(
   return null;
 }
 
-export default function DeviceHealthScreen({ route }: Props) {
+const ESTADO_LABELS: Record<string, string> = {
+  SECO: "Seco",
+  NECESITA_RIEGO: "Necesita riego",
+  OK: "OK",
+  HUMEDO: "Húmedo",
+  EXCESO_AGUA: "Exceso de agua",
+};
+
+export default function DeviceHealthScreen({ route, navigation }: Props) {
   const { deviceId } = route.params;
   const queryClient = useQueryClient();
+
+  const deviceQuery = useQuery({
+    queryKey: ["device", deviceId],
+    queryFn: () => devicesApi.getDevice(deviceId),
+  });
+
+  // Ventana minima solo para el "Estado" en vivo (SECO/OK/...) - no hace
+  // falta mas rango, es la misma query que ya usa DeviceDetailScreen,
+  // aqui con el rango mas pequeño posible porque no se dibuja ningun grafico.
+  const readingsQuery = useQuery({
+    queryKey: ["readings", deviceId, 2],
+    queryFn: () => devicesApi.getReadings(deviceId, 2),
+  });
 
   const summaryQuery = useQuery({
     queryKey: ["health-summary", deviceId],
@@ -153,6 +174,21 @@ export default function DeviceHealthScreen({ route }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.deviceId}>{deviceQuery.data?.name ?? deviceId}</Text>
+      {deviceQuery.data?.name && deviceQuery.data.name !== deviceId ? (
+        <Text style={styles.deviceIdSubtitle}>{deviceId}</Text>
+      ) : null}
+      <Text style={styles.estado}>
+        Estado: {ESTADO_LABELS[readingsQuery.data?.latest_estado ?? ""] ?? "—"}
+      </Text>
+
+      <Pressable
+        style={styles.moreInfoButton}
+        onPress={() => navigation.navigate("DeviceDetail", { deviceId })}
+      >
+        <Text style={styles.moreInfoButtonText}>📊 Más información (riego, gráficas, configuración)</Text>
+      </Pressable>
+
       {!diagnosis ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
@@ -291,6 +327,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   content: { padding: 20 },
   loading: { marginTop: 40 },
+  deviceId: { fontSize: 22, fontWeight: "700" },
+  deviceIdSubtitle: { fontSize: 13, color: "#888", marginTop: 2 },
+  estado: { fontSize: 15, color: "#666", marginTop: 4, marginBottom: 12 },
+  moreInfoButton: {
+    borderWidth: 1,
+    borderColor: "#2e7d32",
+    borderRadius: 8,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  moreInfoButtonText: { color: "#2e7d32", fontSize: 15, fontWeight: "600" },
   empty: { padding: 12, marginBottom: 20 },
   emptyText: { color: "#666", fontSize: 15, lineHeight: 22 },
   verdictCard: {
