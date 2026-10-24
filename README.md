@@ -23,6 +23,7 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Diagnóstico único de salud: combina el histórico de sensores con la última foto analizada por IA en un solo veredicto — si no hay foto, o la IA falla, cae automáticamente al diagnóstico por sensores sin perder nada
 - Duración del riego también personalizable por tipo de planta, no solo los umbrales de humedad
 - Pausa temporal del sensor (con lectura en vivo en la app) para poder moverlo o trasplantar la planta sin que un riego automático se dispare por error
+- Ajuste automático (acotado y notificado) de la duración de riego de un dispositivo si el suelo sigue necesitando riego varios días seguidos pese al riego automático
 
 ## Arquitectura
 
@@ -84,7 +85,8 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Resumen de salud de la planta (rules-based) y calibración del sensor de humedad desde la app
 - [x] Diagnóstico visual con IA (foto + sensores), fusionado con el resumen por sensores en un único veredicto, con caída automática a sensores si no hay foto o la IA falla
 - [x] Duración de riego y pausa temporal del sensor (con lectura en vivo), también personalizables por la app
-- [ ] Ajuste de umbrales por tipo de planta a partir de histórico real (aprendizaje automático)
+- [x] Ajuste automático acotado de la duración de riego por dispositivo, a partir de su propio histórico de humedad, con notificación y tope configurable
+- [ ] Ajuste de umbrales por tipo de planta a partir de histórico real agregado de todos los dispositivos (aprendizaje automático más amplio)
 
 ## Problemas reales resueltos
 
@@ -98,6 +100,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - **Un "nivel gratuito" que no lo era**: al integrar IA con visión para el diagnóstico de plantas, el proveedor elegido por tener plan gratuito devolvía `503` de forma sostenida — resultó ser el límite real de la cuenta disfrazado de aviso de capacidad, confirmado reproduciendo la misma petición fuera del código, directamente en la consola del proveedor.
 - **Un patrón de años dejó de funcionar sin aviso**: subir una foto fallaba con `Unsupported FormDataPart implementation`, un error que no decía nada por sí solo. Causa real: un cambio de SDK sustituyó la implementación de `fetch` de la app, y la nueva ya no aceptaba el objeto `{uri, name, type}` que React Native lleva años usando para adjuntar ficheros — solo se detectó al ejecutar el código por primera vez en un dispositivo real, nunca falló en la compilación.
 - **Un bug "arreglado" que seguía vivo en el extremo físico**: la duración de riego por tipo de planta se veía correcta en la app, la API y la base de datos — pero el ESP32 llevaba desde el primer despliegue regando siempre los mismos 9 segundos fijos, porque el firmware nunca llegó a leer ese valor del canal de configuración. Solo se descubrió cronometrando el riego real contra lo configurado, días después de dar el fix anterior por cerrado.
+- **Un campo "relleno" que no se veía en pantalla**: en Android, un `TextInput` controlado a veces no pintaba el valor real tras cargarlo de forma asíncrona, aunque el estado de React ya lo tuviera — el dato estaba bien, la vista nativa simplemente no se actualizaba. Se resolvía solo al salir y volver a entrar (remontando el componente), lo que apuntó directamente a la solución: forzar ese remontaje con un `key` que cambia justo cuando los datos reales llegan.
 
 ## Estructura del repositorio
 

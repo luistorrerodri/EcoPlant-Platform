@@ -543,3 +543,27 @@ sudo systemctl restart caddy
 **Solución**: dos capas. (1) Firmware: tras leer, si el valor no es `NaN` pero cae fuera de un rango físicamente plausible (`t < -20 || t > 60`, `h < 0 || h > 100`), se fuerza a `NaN` antes de publicarse — mismo tratamiento que ya recibía un DS18B20 desconectado, el campo se omite/null en vez de mandarse como si fuera válido. (2) Backend: `influx_client.PLAUSIBLE_RANGES` (un rango por campo de `NUMERIC_FIELDS`) se aplica como filtro Flux adicional (`|> filter(fn: (r) => r._value >= min and r._value <= max)`) tanto en `get_readings()` como en `get_latest_value()` — así un valor disparatado que ya estuviera guardado en InfluxDB (de antes del fix de firmware) tampoco contamina el resumen de salud ni el diagnóstico con IA mientras siga dentro de la ventana activa. `humedad_suelo_raw` se excluye a propósito: ahí los valores "extremos" son precisamente el dato que la calibración necesita capturar.
 
 **Aprendizaje**: un sensor que "casi siempre funciona bien" sigue necesitando un filtro de plausibilidad en los dos extremos de la cadena (donde se mide y donde se agrega) — arreglar solo el firmware deja contaminados los días ya guardados; arreglar solo el backend no evita que seguir publicando basura ensucie el histórico futuro hasta que alguien vuelva a mirar.
+
+---
+
+## 37. Los campos de `DeviceConfigScreen` a veces se veían en blanco al entrar, aunque tuvieran valor
+
+**Síntoma**: Luis reportó que, de forma intermitente, al abrir "Configuración" los campos de hora de inicio/fin de riego y duración parecían vacíos — pero el valor SÍ estaba guardado (`handleSave` funcionaba con normalidad, y saliendo y volviendo a entrar a la pantalla ya se veían bien).
+
+**Diagnóstico**: el patrón de inicialización (`useEffect` que rellena los `useState` de cada campo en cuanto `deviceQuery.data` llega, guardado por `isInitialized` para no repetirse) es correcto en cuanto a datos — el problema es puramente de repintado. Un `TextInput` controlado de React Native en Android tiene un bug conocido y antiguo: si el componente ya se montó una vez con `value=""` (mientras la query todavía cargaba) y luego el `value` cambia de golpe al dato real, la vista nativa (`EditText`) a veces no refleja la actualización en la primera pasada — el valor interno de React es correcto, pero no llega a pintarse hasta el siguiente remontaje o repintado forzado.
+
+**Solución**: añadir `key={`campo-${isInitialized}`}` a cada `TextInput` que depende de datos cargados de forma asíncrona (nombre, humedad mínima, horas, duración). Al cambiar la `key` justo cuando `isInitialized` pasa de `false` a `true`, React desmonta el `TextInput` "vacío" y monta uno nuevo ya con el valor real desde el primer render — nunca intenta una actualización en caliente que pueda perderse.
+
+**Aprendizaje**: cuando un valor controlado "parece" no estar aplicándose en Android pese a que el estado de React es correcto (confirmable con un `console.log` o con las dev tools), sospechar primero del propio `TextInput` nativo antes de rehacer la lógica de carga de datos — forzar un remontaje con `key` es la vía estándar y más simple para este bug concreto, sin tocar nada del flujo de datos que ya funcionaba bien.
+
+---
+
+## 38. El teclado tapaba el campo que se estaba rellenando, sin forma de ver lo que se escribía
+
+**Síntoma**: en `LoginScreen` (contraseña) y `DeviceConfigScreen` (horas/duración de riego), el teclado podía solaparse con el campo activo, dejando al usuario escribiendo "a ciegas" sin ver el valor.
+
+**Diagnóstico**: ninguna de las dos pantallas envolvía su contenido en `KeyboardAvoidingView`. `DeviceConfigScreen` ya usaba `ScrollView` (así que técnicamente podía desplazarse), pero nada hacía scroll automático hasta el campo activo al abrirse el teclado; `LoginScreen` ni siquiera era desplazable (`View` con `justifyContent:"center"`), así que en pantallas pequeñas el teclado simplemente dejaba contenido fuera de la vista sin ninguna vía para verlo.
+
+**Solución**: envolver ambas pantallas en `KeyboardAvoidingView` (`behavior="padding"` en iOS, `"height"` en Android — el patrón estándar de React Native, sin librerías nuevas) y, en `LoginScreen`, convertir el contenedor fijo en un `ScrollView` con `keyboardShouldPersistTaps="handled"` para que sea desplazable de verdad.
+
+**Aprendizaje**: cualquier pantalla con campos de texto necesita `KeyboardAvoidingView` desde el principio en React Native — no es un comportamiento que el sistema operativo resuelva solo por defecto en todos los casos, y es fácil no notarlo en desarrollo si se prueba siempre con pantallas grandes o con el emulador en vertical sin teclado físico.

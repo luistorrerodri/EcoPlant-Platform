@@ -953,6 +953,24 @@ Verificar: cronometrar un riego real (no solo mirar la API) y confirmar que dura
 
 Verificar: `GET /api/devices/macetero02/latest-readings` y el resumen de salud ya no deberían reflejar picos como ~121°C aunque existan puntos así en el histórico guardado antes del fix.
 
+### Ajuste automático de la duración de riego, recordatorio de foto y nombre amigable en notificaciones (2026-10-24)
+
+Migración nueva (`c4e8a2f91b7d`, añade `devices.duracion_riego_base_ms`) más cambios en `health_scheduler.py`, `notify.py`, `mqtt_client.py` y `routers/devices.py` — ver `docs/architecture.md` § "Ajuste automático de la duración de riego" para el razonamiento completo.
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+alembic upgrade head          # c4e8a2f91b7d: duracion_riego_base_ms en devices
+sudo systemctl restart ecoplant-backend
+```
+
+Tres cambios de comportamiento a tener en cuenta:
+- Las notificaciones de "Riego completado"/"Dispositivo desconectado" ahora muestran el nombre de la planta (`device.name`, o el `device_id` si no tiene nombre puesto) en vez del `device_id` en crudo.
+- El aviso periódico de salud (cada ~4-5 días) deja de mandar el mensaje de solo-sensores cuando la última foto analizada tiene más de 10 días (o no existe ninguna) — en su lugar pide subir una foto nueva. El mensaje de solo-sensores se sigue calculando y guardando igual (lo sigue usando la app), solo cambia el texto del push.
+- Un dispositivo que acumule 2 resúmenes de salud seguidos en `revisar_riego` se alarga su `duracion_riego_ms` en 1s sola, hasta un máximo de `duracion_riego_base_ms + 4000`, y avisa por notificación. `duracion_riego_base_ms` se resetea solo al valor nuevo cada vez que una persona cambia la duración desde la app (a mano o al elegir tipo de planta) — vuelve a tener margen completo de 4s desde ahí.
+
+Verificar: `alembic current` debe decir `c4e8a2f91b7d (head)`; un `PATCH /api/devices/{id}` con `duracion_riego_ms` debe devolver el dispositivo con `duracion_riego_base_ms` igual al nuevo valor (no es un campo expuesto en el schema de salida todavía, comprobar directo en Postgres: `SELECT duracion_riego_ms, duracion_riego_base_ms FROM devices WHERE device_id = '...'`).
+
 ---
 
 ## Verificación del stack completo
