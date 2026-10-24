@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   SectionList,
@@ -74,7 +76,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
   const selectedPlantType = plantTypesQuery.data?.find((p) => p.id === plantTypeId);
 
-  function selectPlantType(plantType: PlantTypeOut) {
+  function applyPlantType(plantType: PlantTypeOut) {
     setPlantTypeId(plantType.id);
     setHumedadMin(String(plantType.default_humedad_min));
     setHumedadMax(String(plantType.default_humedad_max));
@@ -82,6 +84,26 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
     setHoraFin(String(plantType.default_hora_fin));
     setDuracionRiegoS(String(Math.round(plantType.default_duracion_riego_ms / 1000)));
     setPickerOpen(false);
+  }
+
+  function selectPlantType(plantType: PlantTypeOut) {
+    // Solo pregunta si ya habia un tipo elegido antes (no en la primera
+    // seleccion de un dispositivo recien reclamado, ahi no hay nada que
+    // perder todavia) - cambiar de tipo sobreescribe humedad/horario/
+    // duracion con los valores por defecto del nuevo tipo, perdiendo
+    // cualquier ajuste manual hecho sobre el tipo anterior.
+    if (plantTypeId && plantTypeId !== plantType.id) {
+      Alert.alert(
+        "Cambiar tipo de planta",
+        `Se sobreescribirán los valores actuales (humedad, horario y duración de riego) con los de "${plantType.name}". ¿Continuar?`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Continuar", onPress: () => applyPlantType(plantType) },
+        ]
+      );
+      return;
+    }
+    applyPlantType(plantType);
   }
 
   const plantTypeSections = CATEGORY_ORDER.map((category) => ({
@@ -137,9 +159,20 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
       <Text style={[styles.label, { marginTop: 0 }]}>Nombre de la planta</Text>
-      <TextInput style={styles.input} placeholder="Ej. Amapola, Gardenia..." value={name} onChangeText={setName} />
+      <TextInput
+        key={`name-${isInitialized}`}
+        style={styles.input}
+        placeholder="Ej. Amapola, Gardenia..."
+        value={name}
+        onChangeText={setName}
+      />
 
       <Text style={styles.label}>Ubicación de la planta</Text>
       <View style={styles.envSelector}>
@@ -163,6 +196,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
       <Text style={styles.label}>Humedad mínima de suelo (%)</Text>
       <TextInput
+        key={`humedadMin-${isInitialized}`}
         style={styles.input}
         value={humedadMin}
         onChangeText={setHumedadMin}
@@ -172,6 +206,7 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
 
       <Text style={styles.label}>Hora de inicio del riego permitido</Text>
       <TextInput
+        key={`horaInicio-${isInitialized}`}
         style={styles.input}
         value={horaInicio}
         onChangeText={setHoraInicio}
@@ -180,10 +215,18 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
       />
 
       <Text style={styles.label}>Hora de fin del riego permitido</Text>
-      <TextInput style={styles.input} value={horaFin} onChangeText={setHoraFin} keyboardType="numeric" maxLength={2} />
+      <TextInput
+        key={`horaFin-${isInitialized}`}
+        style={styles.input}
+        value={horaFin}
+        onChangeText={setHoraFin}
+        keyboardType="numeric"
+        maxLength={2}
+      />
 
       <Text style={styles.label}>Duración de cada riego (segundos)</Text>
       <TextInput
+        key={`duracionRiego-${isInitialized}`}
         style={styles.input}
         value={duracionRiegoS}
         onChangeText={setDuracionRiegoS}
@@ -233,11 +276,13 @@ export default function DeviceConfigScreen({ route, navigation }: Props) {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   container: { flex: 1, backgroundColor: "#fff" },
   content: { padding: 20 },
   loading: { marginTop: 40 },
