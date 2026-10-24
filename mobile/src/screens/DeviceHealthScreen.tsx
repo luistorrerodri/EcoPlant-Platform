@@ -126,6 +126,11 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
     mutationFn: (photoUri: string) => devicesApi.submitPhotoDiagnosis(deviceId, photoUri),
     onSuccess: (data) => {
       queryClient.setQueryData(["photo-diagnosis", deviceId], data);
+      // Aprovecha la foto nueva para refrescar tambien el resumen por
+      // sensores - si no, los stats de abajo (riegos, % saturado...)
+      // podrian quedarse varios dias desfasados aunque la foto este recien
+      // subida, ya que antes eran dos acciones independientes.
+      refreshMutation.mutate();
     },
     onError: (err) => {
       // eslint-disable-next-line no-console
@@ -155,10 +160,15 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
     photoMutation.mutate(result.assets[0].uri);
   }
 
-  function handleUpdatePhoto() {
-    Alert.alert("Actualizar foto", "¿Cómo quieres añadir la foto?", [
-      { text: "Hacer foto", onPress: () => handlePickPhoto("camera") },
-      { text: "Elegir de la galería", onPress: () => handlePickPhoto("library") },
+  // Un solo botón de actualizar en vez de dos (foto / sensores por
+  // separado) - si no se puede hacer foto en ese momento (fuera de
+  // casa, sin planta delante), la opción "Solo sensores" sigue
+  // disponible sin salir de este cuadro de diálogo.
+  function handleUpdate() {
+    Alert.alert("Actualizar diagnóstico", "¿Cómo quieres actualizarlo?", [
+      { text: "📷 Hacer foto", onPress: () => handlePickPhoto("camera") },
+      { text: "🖼️ Elegir de la galería", onPress: () => handlePickPhoto("library") },
+      { text: "Solo sensores (sin foto)", onPress: () => refreshMutation.mutate() },
       { text: "Cancelar", style: "cancel" },
     ]);
   }
@@ -182,13 +192,6 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
         Estado: {ESTADO_LABELS[readingsQuery.data?.latest_estado ?? ""] ?? "—"}
       </Text>
 
-      <Pressable
-        style={styles.moreInfoButton}
-        onPress={() => navigation.navigate("DeviceDetail", { deviceId })}
-      >
-        <Text style={styles.moreInfoButtonText}>📊 Más información (riego, gráficas, configuración)</Text>
-      </Pressable>
-
       {!diagnosis ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>
@@ -202,6 +205,7 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
           <View style={[styles.verdictCard, { borderColor: diagnosis.color }]}>
             <Text style={styles.verdictIcon}>{diagnosis.icon}</Text>
             <Text style={[styles.verdictLabel, { color: diagnosis.color }]}>{diagnosis.label}</Text>
+            {imageSource ? <Image source={imageSource} style={styles.photoThumbnail} /> : null}
             <Text style={styles.sourceTag}>
               {diagnosis.source === "foto"
                 ? "📷 Basado en tu última foto + los sensores"
@@ -270,54 +274,34 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
         </>
       )}
 
+      <Text style={styles.sectionIntro}>
+        Sube una foto para que el diagnóstico también tenga en cuenta cosas que ningún sensor puede ver —
+        hojas amarillas, plaga, marchitez. Si no puedes hacer una foto ahora (p. ej. fuera de casa),
+        también puedes actualizar solo con los sensores.
+      </Text>
+
       <Pressable
-        style={[styles.refreshButton, refreshMutation.isPending && styles.buttonDisabled]}
-        disabled={refreshMutation.isPending}
-        onPress={() => refreshMutation.mutate()}
+        style={[
+          styles.refreshButton,
+          (photoMutation.isPending || refreshMutation.isPending) && styles.buttonDisabled,
+        ]}
+        disabled={photoMutation.isPending || refreshMutation.isPending}
+        onPress={handleUpdate}
       >
-        {refreshMutation.isPending ? (
+        {photoMutation.isPending || refreshMutation.isPending ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.refreshButtonText}>
-            {notFound || !summary ? "Calcular por sensores ahora" : "🔄 Recalcular por sensores"}
+            {notFound || !summary ? "Calcular diagnóstico ahora" : "🔄 Actualizar diagnóstico"}
           </Text>
         )}
       </Pressable>
 
-      <View style={styles.divider} />
-      <Text style={styles.sectionTitle}>📷 Foto de la planta</Text>
-      <Text style={styles.sectionIntro}>
-        Sube una foto para que el diagnóstico de arriba también tenga en cuenta cosas que ningún sensor
-        puede ver — hojas amarillas, plaga, marchitez. Compara con la foto anterior si ya habías subido una.
-      </Text>
-
-      {photoQuery.isLoading ? (
-        <ActivityIndicator style={styles.loading} />
-      ) : photoNotFound || !photoDiagnosis ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>Todavía no has subido ninguna foto de esta planta.</Text>
-        </View>
-      ) : (
-        <>
-          {imageSource ? <Image source={imageSource} style={styles.photoThumbnail} /> : null}
-          <Text style={styles.updatedAt}>
-            Última foto del{" "}
-            {new Date(photoDiagnosis.created_at).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}
-            {" — su diagnóstico es el que ves arriba"}
-          </Text>
-        </>
-      )}
-
       <Pressable
-        style={[styles.refreshButton, photoMutation.isPending && styles.buttonDisabled]}
-        disabled={photoMutation.isPending}
-        onPress={handleUpdatePhoto}
+        style={styles.moreInfoButton}
+        onPress={() => navigation.navigate("DeviceDetail", { deviceId })}
       >
-        {photoMutation.isPending ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.refreshButtonText}>📷 Actualizar foto</Text>
-        )}
+        <Text style={styles.moreInfoButtonText}>📊 Más información</Text>
       </Pressable>
     </ScrollView>
   );
@@ -367,11 +351,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 14,
     alignItems: "center",
+    marginBottom: 12,
   },
   buttonDisabled: { opacity: 0.5 },
   refreshButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  divider: { height: 1, backgroundColor: "#eee", marginVertical: 24 },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: "#333", marginBottom: 6 },
   sectionIntro: { fontSize: 13.5, color: "#777", lineHeight: 19, marginBottom: 16 },
   photoThumbnail: {
     width: "100%",
