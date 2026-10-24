@@ -53,7 +53,7 @@ def _notify_if_still_offline(device_id: str) -> None:
     if _last_online_state.get(device_id) is not False:
         return
     notify_owner(
-        device_id, "Dispositivo desconectado", f"{device_id} se ha desconectado inesperadamente."
+        device_id, "Dispositivo desconectado", "{device_name} se ha desconectado inesperadamente."
     )
 
 
@@ -91,7 +91,7 @@ def _on_message(client, userdata, message) -> None:
         _last_online_state[device_id] = True
     elif payload.get("evento") == "riego_completado":
         _persist_watering_event(device_id, payload)
-        notify_owner(device_id, "Riego completado", f"{device_id} ha terminado de regar.")
+        notify_owner(device_id, "Riego completado", "{device_name} ha terminado de regar.")
 
 
 _client.on_connect = _on_connect

@@ -121,6 +121,11 @@ def update_device(
         device.hora_fin = data.hora_fin
     if data.duracion_riego_ms is not None:
         device.duracion_riego_ms = data.duracion_riego_ms
+        # Una persona acaba de fijar la duracion (a mano, o al elegir
+        # tipo de planta) - se convierte en el nuevo punto de referencia
+        # del ajuste automatico (ver health_scheduler.py), que vuelve a
+        # tener margen completo de 4s desde aqui.
+        device.duracion_riego_base_ms = data.duracion_riego_ms
     if data.environment is not None:
         device.environment = data.environment
     db.commit()

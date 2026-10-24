@@ -41,6 +41,12 @@ class Device(Base):
     hora_inicio: Mapped[int] = mapped_column(Integer, server_default="8")
     hora_fin: Mapped[int] = mapped_column(Integer, server_default="21")
     duracion_riego_ms: Mapped[int] = mapped_column(Integer, server_default="9000")
+    # Ultima duracion puesta por una persona (a mano, o al elegir tipo de
+    # planta) - se resetea sola en cada PATCH que incluya duracion_riego_ms.
+    # Es el punto de referencia del ajuste automatico (ver health_scheduler.py):
+    # nunca deja que duracion_riego_ms suba mas de 4s por encima de esto sin
+    # que una persona lo confirme de nuevo.
+    duracion_riego_base_ms: Mapped[int] = mapped_column(Integer, server_default="9000")
 
     # "interior" | "exterior" | NULL (sin especificar). No cambia nada del
     # ciclo de riego por si sola - es la bandera que decidira mas adelante
