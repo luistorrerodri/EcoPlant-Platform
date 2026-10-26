@@ -78,6 +78,18 @@ export interface LatestReadingsOut {
   humedad_ambiente: number | null;
 }
 
+export interface DeviceStatusOut {
+  online: boolean;
+  last_seen_at: string | null;
+}
+
+// "manual" | "automatico" | null (riego anterior a que se guardara el origen).
+export interface WateringEventOut {
+  timestamp: string;
+  duration_ms: number;
+  origen: "manual" | "automatico" | null;
+}
+
 export type HealthVerdict = "sana" | "revisar_riego" | "revisar_drenaje" | "datos_insuficientes";
 
 export interface HealthSummaryOut {

@@ -197,6 +197,13 @@ export default function DeviceDetailScreen({ route, navigation }: Props) {
       </Pressable>
 
       <Pressable
+        style={styles.configButton}
+        onPress={() => navigation.navigate("WateringHistory", { deviceId })}
+      >
+        <Text style={styles.configButtonText}>💧 Historial de riegos</Text>
+      </Pressable>
+
+      <Pressable
         style={[styles.waterButton, waterMutation.isPending && styles.buttonDisabled]}
         disabled={waterMutation.isPending}
         onPress={() => waterMutation.mutate()}

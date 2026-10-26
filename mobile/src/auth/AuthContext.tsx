@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 
 import * as authApi from "../api/auth";
 import { registerSessionExpiredHandler } from "../api/client";
-import { registerForPushNotifications } from "../notifications";
+import { registerForPushNotifications, unregisterFromPushNotifications } from "../notifications";
 import type { UserOut } from "../types/api";
 import { clearTokens, getAccessToken, getRefreshToken, saveTokens } from "./secureStorage";
 
@@ -56,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
+    // Con tope de 5s: sin red, cerrar sesion no debe quedarse esperando.
+    await Promise.race([
+      unregisterFromPushNotifications(),
+      new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+    ]);
     const refreshToken = await getRefreshToken();
     if (refreshToken) {
       await authApi.logout(refreshToken).catch(() => undefined);

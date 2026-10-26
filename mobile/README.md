@@ -1,6 +1,6 @@
 # App móvil
 
-App React Native (Expo, TypeScript) para EcoPlant Platform: login/registro, ubicaciones, reclamación y control de dispositivos, histórico con gráficos, riego manual y notificaciones push. Consume la misma API que cualquier otro cliente futuro (portal web incluido) — ver [`../backend/README.md`](../backend/README.md) para el contrato de la API, y [`../docs/architecture.md`](../docs/architecture.md#app-móvil) para el porqué de las decisiones de diseño.
+App React Native (Expo, TypeScript) para EcoPlant Platform: login/registro, ubicaciones, reclamación y control de dispositivos, histórico con gráficos, historial de riegos (manual/automático), estado de conexión, riego manual y notificaciones push. Consume la misma API que cualquier otro cliente futuro (portal web incluido) — ver [`../backend/README.md`](../backend/README.md) para el contrato de la API, y [`../docs/architecture.md`](../docs/architecture.md#app-móvil) para el porqué de las decisiones de diseño.
 
 ## Requisitos
 

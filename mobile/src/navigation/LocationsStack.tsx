@@ -7,6 +7,7 @@ import DeviceDetailScreen from "../screens/DeviceDetailScreen";
 import DeviceConfigScreen from "../screens/DeviceConfigScreen";
 import DeviceHealthScreen from "../screens/DeviceHealthScreen";
 import CalibrateSoilSensorScreen from "../screens/CalibrateSoilSensorScreen";
+import WateringHistoryScreen from "../screens/WateringHistoryScreen";
 
 export type LocationsStackParamList = {
   Locations: undefined;
@@ -16,6 +17,7 @@ export type LocationsStackParamList = {
   DeviceConfig: { deviceId: string };
   DeviceHealth: { deviceId: string };
   CalibrateSoilSensor: { deviceId: string };
+  WateringHistory: { deviceId: string };
 };
 
 const Stack = createNativeStackNavigator<LocationsStackParamList>();
@@ -37,6 +39,11 @@ export default function LocationsStack() {
         name="CalibrateSoilSensor"
         component={CalibrateSoilSensorScreen}
         options={{ title: "Calibrar sensor" }}
+      />
+      <Stack.Screen
+        name="WateringHistory"
+        component={WateringHistoryScreen}
+        options={{ title: "Historial de riegos" }}
       />
     </Stack.Navigator>
   );

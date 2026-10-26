@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import * as devicesApi from "../api/devices";
 import { ApiError } from "../api/client";
+import { statusLabel } from "../components/DeviceCard";
 import type { LocationsStackParamList } from "../navigation/LocationsStack";
 import type { HealthVerdict, PhotoVerdict } from "../types/api";
 
@@ -83,6 +84,14 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
     queryKey: ["readings", deviceId, 2],
     queryFn: () => devicesApi.getReadings(deviceId, 2),
   });
+
+  // Misma consulta (y misma cache) que la lista de dispositivos.
+  const statusQuery = useQuery({
+    queryKey: ["devices-status"],
+    queryFn: devicesApi.getDevicesStatus,
+    refetchInterval: 20_000,
+  });
+  const connection = statusLabel(statusQuery.data?.[deviceId]);
 
   const summaryQuery = useQuery({
     queryKey: ["health-summary", deviceId],
@@ -188,9 +197,14 @@ export default function DeviceHealthScreen({ route, navigation }: Props) {
       {deviceQuery.data?.name && deviceQuery.data.name !== deviceId ? (
         <Text style={styles.deviceIdSubtitle}>{deviceId}</Text>
       ) : null}
-      <Text style={styles.estado}>
+      <Text style={connection ? styles.estadoCompact : styles.estado}>
         Estado: {ESTADO_LABELS[readingsQuery.data?.latest_estado ?? ""] ?? "—"}
       </Text>
+      {connection ? (
+        <Text style={[styles.connection, { color: connection.color }]}>
+          {connection.dot} {connection.text}
+        </Text>
+      ) : null}
 
       {!diagnosis ? (
         <View style={styles.empty}>
@@ -314,6 +328,8 @@ const styles = StyleSheet.create({
   deviceId: { fontSize: 22, fontWeight: "700" },
   deviceIdSubtitle: { fontSize: 13, color: "#888", marginTop: 2 },
   estado: { fontSize: 15, color: "#666", marginTop: 4, marginBottom: 12 },
+  estadoCompact: { fontSize: 15, color: "#666", marginTop: 4 },
+  connection: { fontSize: 13, fontWeight: "500", marginTop: 2, marginBottom: 12 },
   moreInfoButton: {
     borderWidth: 1,
     borderColor: "#2e7d32",

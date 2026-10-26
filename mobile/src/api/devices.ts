@@ -3,10 +3,12 @@ import { getAccessToken, getApiBaseUrl } from "../auth/secureStorage";
 import type {
   DeviceEnvironment,
   DeviceOut,
+  DeviceStatusOut,
   HealthSummaryOut,
   LatestReadingsOut,
   PhotoDiagnosisOut,
   ReadingsOut,
+  WateringEventOut,
 } from "../types/api";
 
 export function listDevices(): Promise<DeviceOut[]> {
@@ -59,6 +61,14 @@ export function getReadings(deviceId: string, hours = 24): Promise<ReadingsOut> 
 
 export function getLatestReadings(deviceId: string): Promise<LatestReadingsOut> {
   return apiRequest<LatestReadingsOut>(`/api/devices/${deviceId}/latest-readings`);
+}
+
+export function getDevicesStatus(): Promise<Record<string, DeviceStatusOut>> {
+  return apiRequest<Record<string, DeviceStatusOut>>("/api/devices/status");
+}
+
+export function getWateringEvents(deviceId: string, limit = 30): Promise<WateringEventOut[]> {
+  return apiRequest<WateringEventOut[]>(`/api/devices/${deviceId}/watering-events?limit=${limit}`);
 }
 
 export function waterDevice(deviceId: string): Promise<{ status: string }> {

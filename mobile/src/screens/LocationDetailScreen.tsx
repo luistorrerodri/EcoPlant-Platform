@@ -40,6 +40,15 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
     queryFn: devicesApi.listDevices,
   });
 
+  // Estado conectado/desconectado de cada dispositivo. Si esta consulta
+  // falla (p.ej. InfluxDB caido) la lista se ve igual, solo sin el punto
+  // de estado - no es motivo para ocultar los dispositivos.
+  const statusQuery = useQuery({
+    queryKey: ["devices-status"],
+    queryFn: devicesApi.getDevicesStatus,
+    refetchInterval: 20_000,
+  });
+
   const locationQuery = useQuery({
     queryKey: ["location", locationId],
     queryFn: () => locationsApi.getLocation(locationId),
@@ -157,6 +166,7 @@ export default function LocationDetailScreen({ route, navigation }: Props) {
         renderItem={({ item }) => (
           <DeviceCard
             device={item}
+            status={statusQuery.data?.[item.device_id]}
             onPress={() => navigation.navigate("DeviceHealth", { deviceId: item.device_id })}
           />
         )}
