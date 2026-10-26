@@ -15,7 +15,9 @@ Proyecto personal desarrollado como portfolio técnico durante un Máster en IoT
 - Guarda histórico de todas las lecturas para análisis posterior
 - Pensado desde el diseño para escalar a múltiples dispositivos
 - API multiusuario propia (registro, ubicaciones, dispositivos), consumida por una app móvil real (Android, misma base para iOS)
-- Notificaciones push cuando un macetero se desconecta o termina de regar
+- Notificaciones push cuando un macetero se desconecta o termina de regar, a todos los móviles que comparten la cuenta, más un aviso semanal por macetero (domingo 11:00) con el último resumen de salud y un recordatorio de foto
+- Estado conectado / sin conexión de cada macetero y historial de riegos (con etiqueta manual / automático) en la app
+- Protección contra fuerza bruta en login y registro (bloqueo temporal por email e IP) y copia de seguridad cifrada de toda la plataforma hacia el PC
 - Umbrales de riego y de estado personalizables por tipo de planta (catálogo de 43 tipos en 6 categorías: plantas, árboles, palmeras, hoja grande, colgantes y crasas), no un valor fijo para todas
 - Consulta el pronóstico de lluvia antes de regar en exterior (Open-Meteo)
 - Resumen periódico de salud de la planta (tiempo bajo el mínimo, saturación, ritmo de secado) a partir del histórico
@@ -86,6 +88,8 @@ Ver [`docs/architecture.md`](docs/architecture.md) para el detalle de cada decis
 - [x] Diagnóstico visual con IA (foto + sensores), fusionado con el resumen por sensores en un único veredicto, con caída automática a sensores si no hay foto o la IA falla
 - [x] Duración de riego y pausa temporal del sensor (con lectura en vivo), también personalizables por la app
 - [x] Ajuste automático acotado de la duración de riego por dispositivo, a partir de su propio histórico de humedad, con notificación y tope configurable
+- [x] Estado de conexión, historial de riegos manual/automático, varios móviles por cuenta y aviso semanal por macetero
+- [x] Límite de intentos de login/registro y copia de seguridad cifrada (manual, hacia el PC)
 - [ ] Ajuste de umbrales por tipo de planta a partir de histórico real agregado de todos los dispositivos (aprendizaje automático más amplio)
 
 ## Problemas reales resueltos
@@ -101,6 +105,7 @@ Una parte del valor de este proyecto está en los problemas de integración real
 - **Un patrón de años dejó de funcionar sin aviso**: subir una foto fallaba con `Unsupported FormDataPart implementation`, un error que no decía nada por sí solo. Causa real: un cambio de SDK sustituyó la implementación de `fetch` de la app, y la nueva ya no aceptaba el objeto `{uri, name, type}` que React Native lleva años usando para adjuntar ficheros — solo se detectó al ejecutar el código por primera vez en un dispositivo real, nunca falló en la compilación.
 - **Un bug "arreglado" que seguía vivo en el extremo físico**: la duración de riego por tipo de planta se veía correcta en la app, la API y la base de datos — pero el ESP32 llevaba desde el primer despliegue regando siempre los mismos 9 segundos fijos, porque el firmware nunca llegó a leer ese valor del canal de configuración. Solo se descubrió cronometrando el riego real contra lo configurado, días después de dar el fix anterior por cerrado.
 - **Un campo "relleno" que no se veía en pantalla**: en Android, un `TextInput` controlado a veces no pintaba el valor real tras cargarlo de forma asíncrona, aunque el estado de React ya lo tuviera — el dato estaba bien, la vista nativa simplemente no se actualizaba. Se resolvía solo al salir y volver a entrar (remontando el componente), lo que apuntó directamente a la solución: forzar ese remontaje con un `key` que cambia justo cuando los datos reales llegan.
+- **Una hora que mentía sin avisar**: los riegos registrados salían con 1-2 h de adelanto. El RTC del ESP32 guarda la hora local de Madrid, pero `unixtime()` la presenta como si fuera UTC — un número "correcto" con la zona horaria equivocada, que nadie había visto porque ninguna pantalla mostraba esa hora hasta construir el historial. Corregido en el backend (sin reflashear) y con migración de los datos ya guardados.
 
 ## Estructura del repositorio
 

@@ -567,3 +567,15 @@ sudo systemctl restart caddy
 **Solución**: envolver ambas pantallas en `KeyboardAvoidingView` (`behavior="padding"` en iOS, `"height"` en Android — el patrón estándar de React Native, sin librerías nuevas) y, en `LoginScreen`, convertir el contenedor fijo en un `ScrollView` con `keyboardShouldPersistTaps="handled"` para que sea desplazable de verdad.
 
 **Aprendizaje**: cualquier pantalla con campos de texto necesita `KeyboardAvoidingView` desde el principio en React Native — no es un comportamiento que el sistema operativo resuelva solo por defecto en todos los casos, y es fácil no notarlo en desarrollo si se prueba siempre con pantallas grandes o con el emulador en vertical sin teclado físico.
+
+---
+
+## 39. Los riegos registrados salían con 1-2 horas de adelanto
+
+**Síntoma**: al preparar el historial de riegos en la app, el primer riego de prueba aparecía en el futuro (una o dos horas por delante de la hora real).
+
+**Diagnóstico**: el ESP32 sincroniza el RTC por NTP con la zona horaria de Madrid (`Validez temporal` en `docs/architecture.md`), así que el RTC guarda la hora **local**, no UTC. Pero `rtc.now().unixtime()` solo cuenta segundos desde 1970 sobre lo que contenga el RTC: devuelve un número que es "hora de Madrid etiquetada como si fuera UTC". El backend guardaba ese número tal cual en `watering_events.timestamp` (UTC), por lo que cada riego salía 1 h adelantado en invierno (CET) y 2 h en verano (CEST). No se había notado porque hasta ahora ninguna pantalla mostraba esa hora. No afecta a las lecturas de sensores (Node-RED les pone la hora de recepción en InfluxDB) ni al bloqueo de 24 h entre riegos (Node-RED usa `recibidoEn = Date.now()`, no el timestamp del dispositivo).
+
+**Solución**: sin tocar firmware. `time_utils.device_unix_to_utc()` reinterpreta el valor recibido como hora local de `Europe/Madrid` y lo convierte a UTC (respeta el cambio de hora, requiere la dependencia `tzdata` en la Pi), y se usa al guardar cada `riego_completado` en `mqtt_client.py`. Una migración de datos (`a8f2d6b41c93`) aplica la misma conversión a los riegos ya guardados (`UPDATE watering_events SET timestamp = (timestamp AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Madrid'`); su `downgrade` la deshace. Detalle borde: una hora del cambio de otoño es ambigua (se repite 02:00-03:00) y se resuelve a la primera ocurrencia — un riego en esa franja puede quedar desfasado 1 h, asumible.
+
+**Aprendizaje**: un timestamp Unix de un microcontrolador solo es "UTC" si el RTC realmente guarda UTC; con NTP + zona horaria local, el RTC guarda hora local y `unixtime()` miente. Al integrar un dispositivo nuevo, comprobar con un evento real a qué hora dice el dispositivo que ocurrió algo, no asumirlo.

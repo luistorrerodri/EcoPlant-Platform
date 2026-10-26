@@ -966,10 +966,39 @@ sudo systemctl restart ecoplant-backend
 
 Tres cambios de comportamiento a tener en cuenta:
 - Las notificaciones de "Riego completado"/"Dispositivo desconectado" ahora muestran el nombre de la planta (`device.name`, o el `device_id` si no tiene nombre puesto) en vez del `device_id` en crudo.
-- El aviso periódico de salud (cada ~4-5 días) deja de mandar el mensaje de solo-sensores cuando la última foto analizada tiene más de 10 días (o no existe ninguna) — en su lugar pide subir una foto nueva. El mensaje de solo-sensores se sigue calculando y guardando igual (lo sigue usando la app), solo cambia el texto del push.
+- El aviso periódico de salud (cada ~4-5 días) dejó de mandar el mensaje de solo-sensores cuando la última foto analizada tenía más de 10 días. **Sustituido el 2026-10-26** por una notificación semanal por macetero (ver más abajo).
 - Un dispositivo que acumule 2 resúmenes de salud seguidos en `revisar_riego` se alarga su `duracion_riego_ms` en 1s sola, hasta un máximo de `duracion_riego_base_ms + 4000`, y avisa por notificación. `duracion_riego_base_ms` se resetea solo al valor nuevo cada vez que una persona cambia la duración desde la app (a mano o al elegir tipo de planta) — vuelve a tener margen completo de 4s desde ahí.
 
 Verificar: `alembic current` debe decir `c4e8a2f91b7d (head)`; un `PATCH /api/devices/{id}` con `duracion_riego_ms` debe devolver el dispositivo con `duracion_riego_base_ms` igual al nuevo valor (no es un campo expuesto en el schema de salida todavía, comprobar directo en Postgres: `SELECT duracion_riego_ms, duracion_riego_base_ms FROM devices WHERE device_id = '...'`).
+
+### Protección de login, estado, historial de riegos, varios móviles y notificación semanal (2026-10-26)
+
+Dos migraciones nuevas (cadena `c4e8a2f91b7d → a8f2d6b41c93 → e5b9c3a72d18`) y una dependencia nueva (`tzdata`). Razonamiento completo en `docs/architecture.md` § "Protección contra fuerza bruta…" y "Estado, historial y notificación semanal".
+
+```bash
+cd ~/EcoPlant-Platform && git pull
+cd backend && source .venv/bin/activate
+pip install -r requirements.txt      # tzdata (zona horaria Europe/Madrid; la Pi no la trae para Python)
+alembic upgrade head                 # a8f2d6b41c93 y e5b9c3a72d18
+sudo systemctl restart ecoplant-backend
+```
+
+Haz el `alembic upgrade head` y el `restart` seguidos: la primera migración **corrige las horas ya guardadas** de `watering_events` (el ESP32 mandaba la hora local de Madrid etiquetada como UTC, así que salían 1-2 h adelantadas) y el código nuevo ya guarda las horas bien; entre una cosa y otra, un riego registrado quedaría con la hora sin corregir (probabilidad despreciable, pero no los separes con una pausa larga). La segunda migración **copia el `push_token` de cada usuario a la tabla nueva `push_tokens`** y elimina la columna vieja — los móviles con la app antigua siguen recibiendo notificaciones sin reinstalar nada.
+
+Cambios de comportamiento:
+- **Login/registro con límites** (5 fallos por email → 15 min de bloqueo, etc.): `429` con mensaje en español. Se vacían al reiniciar el backend.
+- **Nuevos endpoints**: `GET /api/devices/status` (conectado / sin conexión de todos tus dispositivos, según el último dato recibido en InfluxDB: ≤ 60 s = conectado), `GET /api/devices/{id}/watering-events` (últimos 30 riegos, `?limit=` hasta 100, con `origen`: `manual` / `automatico` / `null` para los anteriores a este cambio), `POST /api/auth/push-token/unregister` (la app lo llama al cerrar sesión).
+- **Varios móviles por cuenta**: cada instalación registra su propio token; los tokens muertos (`DeviceNotRegistered`) se borran solos.
+- **Resumen de salud sin notificación**: el cálculo cada 4 días sigue igual (el ajuste automático de riego lo necesita), pero ya no manda push. En su lugar, **cada domingo a las 11:00 (hora de Madrid)** llega una notificación por macetero con el último resumen y un recordatorio de hacer una foto si la última tiene más de 7 días o no existe. Sustituye al recordatorio de foto de 10 días. El cálculo diario pasó de las 09:00 UTC a las 06:00 UTC para no coincidir con esa hora en verano.
+- La **etiqueta manual/automático** es una heurística del backend (riego completado en los 90 s siguientes a una orden manual) — ver limitaciones conocidas.
+
+Verificar:
+1. `alembic current` → `e5b9c3a72d18 (head)`. `journalctl -u ecoplant-backend -n 30` sin errores; `journalctl -u ecoplant-backend | grep "Aviso semanal"` debe mostrar la próxima ejecución en domingo a las 11:00 con el desfase de Madrid (`+01:00` o `+02:00`).
+2. Un riego manual desde la app → en "Más información → Historial de riegos" aparece con la hora local correcta y la etiqueta *Manual*; el siguiente riego automático sale como *Automático*.
+3. **IP real en los logs** (importante, es lo que hace útil el límite por IP): con el móvil por **datos 4G** (no WiFi), escribe mal la contraseña una vez y mira `journalctl -u ecoplant-backend -n 20`: el aviso de login fallido debe mostrar una IP pública, no `127.0.0.1`. Si saliera `127.0.0.1`, Cloudflare no está pasando `CF-Connecting-IP` y el límite por IP bloquearía a todos a la vez — avisar antes de dejarlo así.
+4. Cinco contraseñas erróneas seguidas con un email → sexto intento (incluso con la correcta) devuelve el mensaje de bloqueo; con otro email la app sigue entrando.
+
+**Requiere build nueva de la app** (pantalla de historial, indicadores de conexión, cierre de sesión que borra el token): `npx eas-cli build --platform android --profile preview`. Con la app antigua todo lo del backend sigue funcionando, solo faltan esas pantallas.
 
 ---
 
@@ -1010,18 +1039,75 @@ El puerto MQTT sin cifrar (1883) está cerrado. Los servicios web (Node-RED, Inf
 
 ## Copia de seguridad
 
-Los siguientes elementos no se regeneran solos y conviene respaldarlos:
+Qué contiene una copia (todo lo que no se regenera solo):
 
-| Qué | Dónde |
+| Qué | Origen en la Pi |
 |---|---|
-| Flujos y credenciales de Node-RED | `~/.node-red/flows.json`, `~/.node-red/flows_cred.json` |
-| Clave de cifrado de credenciales | `credentialSecret` en `settings.js` |
-| Contexto persistente (parámetros de riego) | `~/.node-red/context/` |
-| CA y certificado del servidor | `~/certs/` en la Pi (`ca.key` cifrada con contraseña) |
-| Certificados de cliente (Node-RED, backend, por dispositivo) | `~/certs/clients/` y `~/certs/{nodered,backend-api}.{crt,key}` en la Pi |
-| ACLs del broker | `/etc/mosquitto/acl` |
-| Datos históricos | `/var/lib/influxdb/` |
-| Base de datos de usuarios/ubicaciones/dispositivos | `pg_dump ecoplant` (PostgreSQL) |
-| Variables de entorno del backend | `backend/.env` (fuera del repo, gitignored) |
+| Base de datos de usuarios, ubicaciones, dispositivos, resúmenes, tokens de notificación | `pg_dump` de `ecoplant` + roles de PostgreSQL |
+| Datos históricos (lecturas) | `/var/lib/influxdb/` completo |
+| Flujos y credenciales de Node-RED, clave de cifrado de credenciales, contexto persistente (parámetros de riego) | `~/.node-red/` (sin `node_modules`: se reinstalan con `npm install`) |
+| CA, certificado del servidor, certificados de cliente (Node-RED, backend, dispositivos) | `~/certs/` (`ca.key` cifrada con su propia contraseña) |
+| Broker: configuración, ACLs, certificados | `/etc/mosquitto/` |
+| Variables de entorno del backend | `backend/.env` |
+| Servicios y proxy | `ecoplant-backend.service`, `cloudflared-demo.service`, `influxdb.service`, `nodered.service.d`, `mosquitto.service.d`, `/etc/caddy/Caddyfile` |
+| Grafana | `/etc/grafana/grafana.ini`, `/var/lib/grafana/grafana.db` |
 
-La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos. Vive en la propia Pi, cifrada con una contraseña que solo conoce el operador — mitiga que alguien robe el archivo y lo use directamente, pero no es lo mismo que mantenerla en una máquina totalmente separada del servidor; moverla fuera de la Pi queda como mejora de seguridad pendiente.
+Las fotos de plantas **no se guardan** en ningún sitio (se envían a Groq para el diagnóstico y se descartan), así que no hay nada que respaldar de ellas.
+
+### Hacer una copia (a mano, desde el PC)
+
+La copia se guarda **en el PC**, no en la Pi (si se estropea la tarjeta SD se pierde todo lo que haya en ella). Se lanza cuando se quiera, desde PowerShell y con el PC en la misma red que la Pi:
+
+```powershell
+.\platform\backup\backup-from-pi.ps1
+```
+
+El script se conecta por SSH, ejecuta [`pi-backup.sh`](backup/pi-backup.sh) en la Pi (pide la contraseña `sudo` y una **contraseña de cifrado** para la copia), baja el archivo a `%USERPROFILE%\Backups\EcoPlant\ecoplant-backup-AAAAMMDD-HHMM.tar.gz.enc`, comprueba que el tamaño coincide y borra el temporal de la Pi. Con `-Destino D:\otra\carpeta` se elige otra carpeta.
+
+Detalles que conviene saber:
+
+- **InfluxDB se para unos segundos** mientras se copia su carpeta (es la única forma de que la copia sea consistente sin un token de administrador). Node-RED registrará algún error de escritura en ese momento y se pierden como mucho unas pocas lecturas; el script lo vuelve a arrancar siempre, incluso si algo falla.
+- **La copia contiene secretos** (`.env`, claves privadas, `ca.key`, hashes de contraseña): por eso va cifrada con AES-256 (`openssl enc -pbkdf2`). **Guarda la contraseña de cifrado en un gestor de contraseñas**: sin ella la copia no se puede abrir, y no hay forma de recuperarla.
+- El script abre la copia recién generada para comprobar que la contraseña y el contenido son correctos antes de darla por buena.
+- `MANIFEST.txt` dentro del archivo indica fecha, commit del repo, revisión de Alembic y qué rutas no existían y se omitieron.
+
+### Restaurar
+
+En una Pi nueva (o tras reinstalar), con la copia y su contraseña:
+
+1. Instalar los servicios base siguiendo este README (Mosquitto, Node-RED, InfluxDB, Grafana, PostgreSQL, Caddy, cloudflared) y clonar el repo, **sin configurarlos**: la configuración viene en la copia. Parar los servicios.
+2. Copiar el `.enc` a la Pi y abrirlo:
+
+```bash
+mkdir ~/restore && cd ~/restore
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in ~/ecoplant-backup-AAAAMMDD-HHMM.tar.gz.enc | tar -xzf -
+cat MANIFEST.txt
+```
+
+3. Devolver los ficheros a sus rutas originales (conserva permisos y propietarios):
+
+```bash
+sudo cp -a ~/restore/files/. /
+cd ~/.node-red && npm install        # reinstala node_modules desde package.json
+```
+
+4. PostgreSQL (roles primero, luego la base):
+
+```bash
+sudo -u postgres psql -f ~/restore/postgres-globals.sql      # "role already exists" en postgres es normal
+sudo -u postgres createdb -O ecoplant ecoplant
+sudo -u postgres pg_restore -d ecoplant < ~/restore/postgres-ecoplant.dump
+```
+
+5. InfluxDB:
+
+```bash
+sudo systemctl stop influxdb
+sudo rm -rf /var/lib/influxdb
+sudo tar -C / -xzf ~/restore/influxdb.tar.gz
+sudo systemctl start influxdb
+```
+
+6. `sudo systemctl daemon-reload`, arrancar el resto (`mosquitto`, `nodered`, `grafana-server`, `ecoplant-backend`, `caddy`) y comprobar que los dispositivos publican y que la app abre sesión. Borrar `~/restore` al terminar (contiene secretos sin cifrar).
+
+La clave privada de la CA (`ca.key`) es el elemento más sensible del conjunto: quien la posea puede emitir certificados que los dispositivos aceptarán como legítimos. Vive en la propia Pi, cifrada con una contraseña que solo conoce el operador — mitiga que alguien robe el archivo y lo use directamente, pero no es lo mismo que mantenerla en una máquina totalmente separada del servidor; moverla fuera de la Pi queda como mejora de seguridad pendiente. Las copias en el PC la incluyen (cifrada dos veces: por su contraseña y por la de la copia).
