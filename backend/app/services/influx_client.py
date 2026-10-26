@@ -1,3 +1,6 @@
+import time
+from datetime import datetime
+
 from influxdb_client import InfluxDBClient
 
 from app.config import settings
@@ -113,3 +116,38 @@ def get_latest_value(device_id: str, field: str) -> float | None:
         for record in table.records:
             return record.get_value()
     return None
+
+
+# Hasta donde se busca el ultimo dato de un dispositivo para "visto por
+# ultima vez": mas alla de esto la app dira simplemente "sin datos".
+LAST_SEEN_LOOKBACK = "-7d"
+# Varias pantallas de la app preguntan el estado a la vez y cada pocos
+# segundos; con una cache corta no se repite la misma consulta a InfluxDB
+# por dispositivo en cada peticion.
+_LAST_SEEN_CACHE_TTL_SECONDS = 10
+_last_seen_cache: dict[str, tuple[float, datetime | None]] = {}
+
+
+def get_last_seen(device_id: str) -> datetime | None:
+    # Momento del ultimo dato de humedad_suelo (lo publican todos los
+    # dispositivos, a diferencia de los sensores de ambiente) - que haya
+    # datos llegando es una señal mas honesta de "conectado" que el LWT
+    # de MQTT: detecta tambien un dispositivo colgado con la conexion viva.
+    now = time.monotonic()
+    cached = _last_seen_cache.get(device_id)
+    if cached is not None and now - cached[0] < _LAST_SEEN_CACHE_TTL_SECONDS:
+        return cached[1]
+    flux = f'''
+    from(bucket: "{settings.influxdb_bucket}")
+      |> range(start: {LAST_SEEN_LOOKBACK})
+      |> filter(fn: (r) => r._measurement == "sensores")
+      |> filter(fn: (r) => r._field == "humedad_suelo")
+      |> filter(fn: (r) => r.device_id == "{device_id}")
+      |> last()
+    '''
+    last_seen = None
+    for table in _query_api.query(flux):
+        for record in table.records:
+            last_seen = record.get_time()
+    _last_seen_cache[device_id] = (now, last_seen)
+    return last_seen

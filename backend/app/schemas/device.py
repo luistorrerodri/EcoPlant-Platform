@@ -83,3 +83,21 @@ class LatestReadingsOut(BaseModel):
     temp_aire: float | None
     presion: float | None
     humedad_ambiente: float | None
+
+
+class DeviceStatusOut(BaseModel):
+    # online = hay datos de humedad_suelo de hace menos de
+    # ONLINE_THRESHOLD_SECONDS (ver routers/devices.py). last_seen_at es
+    # None si no hay ningun dato en los ultimos 7 dias.
+    online: bool
+    last_seen_at: datetime | None
+
+
+class WateringEventOut(BaseModel):
+    timestamp: datetime
+    duration_ms: int
+    # "manual" | "automatico" | None (riego anterior a que se guardara
+    # el origen - se muestra sin etiqueta).
+    origen: str | None
+
+    model_config = {"from_attributes": True}

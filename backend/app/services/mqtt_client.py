@@ -2,12 +2,13 @@ import json
 import logging
 import ssl
 import threading
-from datetime import datetime, timezone
 
 import paho.mqtt.client as mqtt
 
 from app.config import settings
 from app.services.notify import notify_owner
+from app.services.time_utils import device_unix_to_utc
+from app.services.watering_origin import consume_origin, mark_manual
 
 logger = logging.getLogger("ecoplant.mqtt")
 
@@ -62,16 +63,24 @@ def _persist_watering_event(device_id: str, payload: dict) -> None:
     from app.database import SessionLocal
     from app.models.watering_event import WateringEvent
 
+    try:
+        timestamp = device_unix_to_utc(payload["timestamp"])
+        duration_ms = payload["duracion_ms"]
+    except (KeyError, TypeError, ValueError, OverflowError, OSError):
+        logger.warning("Evento riego_completado de %s sin timestamp/duracion_ms valido: %s", device_id, payload)
+        return
+
     db = SessionLocal()
     try:
         db.add(WateringEvent(
             device_id=device_id,
-            timestamp=datetime.fromtimestamp(payload["timestamp"], tz=timezone.utc),
-            duration_ms=payload["duracion_ms"],
+            timestamp=timestamp,
+            duration_ms=duration_ms,
+            origen=consume_origin(device_id),
         ))
         db.commit()
-    except (KeyError, TypeError):
-        logger.warning("Evento riego_completado de %s sin timestamp/duracion_ms valido: %s", device_id, payload)
+    except Exception:
+        logger.exception("No se pudo guardar el evento de riego de %s", device_id)
         db.rollback()
     finally:
         db.close()
@@ -113,8 +122,13 @@ def stop() -> None:
 
 
 def publish_water_command(device_id: str) -> None:
+    # Solo el riego MANUAL pasa por aqui (el automatico lo publica
+    # Node-RED directamente): apuntarlo despues de publicar es lo que
+    # permite etiquetar luego el riego como manual - ver
+    # app/services/watering_origin.py.
     result = _client.publish(f"maceteros/{device_id}/comando", "REGAR", qos=1)
     result.wait_for_publish(timeout=5)
+    mark_manual(device_id)
 
 
 def publish_device_config(

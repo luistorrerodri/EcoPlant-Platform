@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,17 @@ from app.models.location import Location
 from app.models.plant_photo_diagnosis import PlantPhotoDiagnosis
 from app.models.plant_type import PlantType
 from app.models.user import User
-from app.schemas.device import CalibratePoint, DeviceClaimRequest, DeviceOut, DeviceUpdate, LatestReadingsOut, ReadingsOut
+from app.models.watering_event import WateringEvent
+from app.schemas.device import (
+    CalibratePoint,
+    DeviceClaimRequest,
+    DeviceOut,
+    DeviceStatusOut,
+    DeviceUpdate,
+    LatestReadingsOut,
+    ReadingsOut,
+    WateringEventOut,
+)
 from app.schemas.health import HealthSummaryOut
 from app.schemas.photo_diagnosis import PhotoDiagnosisOut
 from app.security import verify_claim_code
@@ -22,6 +32,11 @@ from app.services import health_analysis, influx_client, mqtt_client, plant_visi
 MAX_PHOTO_BYTES = 8 * 1024 * 1024
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png"}
 SENSOR_PAUSE_MINUTES = 10
+# El firmware publica cada 4s: un minuto sin ningun dato son ~15 lecturas
+# perdidas, margen de sobra para no marcar "desconectado" por un
+# parpadeo de WiFi de unos segundos (mismo criterio que el margen de
+# 30s antes de avisar por push de una desconexion, ver mqtt_client.py).
+ONLINE_THRESHOLD_SECONDS = 60
 
 logger = logging.getLogger("ecoplant.devices")
 
@@ -76,6 +91,27 @@ def list_devices(user: User = Depends(get_current_user), db: Session = Depends(g
         .order_by(Device.claimed_at)
         .all()
     )
+
+
+# Declarado antes de "/{device_id}": si no, FastAPI casaria "status" como
+# un device_id y devolveria 404.
+@router.get("/status", response_model=dict[str, DeviceStatusOut])
+def devices_status(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict[str, DeviceStatusOut]:
+    devices = (
+        db.query(Device)
+        .join(Location, Device.location_id == Location.id)
+        .filter(Location.owner_id == user.id)
+        .all()
+    )
+    now = datetime.now(timezone.utc)
+    result: dict[str, DeviceStatusOut] = {}
+    for device in devices:
+        last_seen = influx_client.get_last_seen(device.device_id)
+        online = last_seen is not None and (now - last_seen).total_seconds() <= ONLINE_THRESHOLD_SECONDS
+        result[device.device_id] = DeviceStatusOut(online=online, last_seen_at=last_seen)
+    return result
 
 
 @router.get("/{device_id}", response_model=DeviceOut)
@@ -167,6 +203,23 @@ def get_latest_readings(
     reflejar un cambio real."""
     _get_owned_device_or_404(device_id, user, db)
     return {field: influx_client.get_latest_value(device_id, field) for field in influx_client.NUMERIC_FIELDS}
+
+
+@router.get("/{device_id}/watering-events", response_model=list[WateringEventOut])
+def list_watering_events(
+    device_id: str,
+    limit: int = Query(30, ge=1, le=100),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> list[WateringEvent]:
+    _get_owned_device_or_404(device_id, user, db)
+    return (
+        db.query(WateringEvent)
+        .filter(WateringEvent.device_id == device_id)
+        .order_by(WateringEvent.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 @router.post("/{device_id}/water", status_code=status.HTTP_202_ACCEPTED)

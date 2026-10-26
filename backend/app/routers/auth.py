@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
+from app.models.push_token import PushToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import (
@@ -24,8 +25,23 @@ from app.security import (
     refresh_token_expiry,
     verify_password,
 )
+from app.services import rate_limit
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+# Hash de una contraseña que nadie va a usar: se verifica contra el
+# cuando el email no existe, para que "email inexistente" tarde lo mismo
+# (un bcrypt completo) que "email existente con contraseña mala" - si no,
+# la diferencia de tiempo delata que emails estan registrados. Se calcula
+# la primera vez que hace falta, no al importar el modulo.
+_dummy_hash: str | None = None
+
+
+def _verify_against_dummy(password: str) -> None:
+    global _dummy_hash
+    if _dummy_hash is None:
+        _dummy_hash = hash_password("contraseña-de-relleno-sin-uso")
+    verify_password(password, _dummy_hash)
 
 
 def _issue_token_pair(user: User, db: Session) -> TokenPair:
@@ -43,7 +59,8 @@ def _issue_token_pair(user: User, db: Session) -> TokenPair:
 
 
 @router.post("/register", response_model=TokenPair, status_code=status.HTTP_201_CREATED)
-def register(data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
+def register(request: Request, data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
+    rate_limit.check_register_allowed(rate_limit.client_ip(request))
     if db.query(User).filter(User.email == data.email).first() is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Ese email ya está registrado")
 
@@ -60,11 +77,26 @@ def register(data: UserCreate, db: Session = Depends(get_db)) -> TokenPair:
 
 @router.post("/login", response_model=TokenPair)
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
 ) -> TokenPair:
     # El formulario OAuth2 estandar usa "username": aqui viaja el email.
-    user = db.query(User).filter(User.email == form_data.username).first()
-    if user is None or not verify_password(form_data.password, user.hashed_password):
+    email = form_data.username
+    ip = rate_limit.client_ip(request)
+    # Antes de tocar la BD ni verificar nada: un email/IP bloqueado se
+    # rechaza incluso con la contraseña correcta (si no, la fuerza bruta
+    # seguiria funcionando durante el bloqueo).
+    rate_limit.check_login_allowed(email, ip)
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        _verify_against_dummy(form_data.password)
+        password_ok = False
+    else:
+        password_ok = verify_password(form_data.password, user.hashed_password)
+    if not password_ok:
+        rate_limit.record_login_failure(email, ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
@@ -72,6 +104,7 @@ def login(
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cuenta desactivada")
+    rate_limit.record_login_success(email)
     return _issue_token_pair(user, db)
 
 
@@ -116,7 +149,25 @@ def me(user: User = Depends(get_current_user)) -> User:
 def set_push_token(
     data: PushTokenRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> None:
-    user.push_token = data.push_token
+    # Una fila por movil, varias por cuenta. Si el token ya existe (el
+    # mismo movil ya habia iniciado sesion antes, quizas con otra
+    # cuenta) se reasigna a esta cuenta en vez de duplicarlo.
+    existing = db.query(PushToken).filter(PushToken.token == data.push_token).first()
+    if existing is None:
+        db.add(PushToken(user_id=user.id, token=data.push_token))
+    elif existing.user_id != user.id:
+        existing.user_id = user.id
+    db.commit()
+
+
+@router.post("/push-token/unregister", status_code=status.HTTP_204_NO_CONTENT)
+def unregister_push_token(
+    data: PushTokenRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+) -> None:
+    # Al cerrar sesion: ese movil deja de recibir los avisos de esta
+    # cuenta. Solo borra el token si es de este usuario - nadie puede
+    # desregistrar el movil de otra cuenta conociendo su token.
+    db.query(PushToken).filter(PushToken.token == data.push_token, PushToken.user_id == user.id).delete()
     db.commit()
 
 

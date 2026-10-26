@@ -17,3 +17,7 @@ influxdb-client==1.48.0
 requests==2.32.3
 apscheduler==3.11.0
 groq==1.7.0
+# Base de datos de zonas horarias propia, para no depender de que el sistema
+# tenga /usr/share/zoneinfo (zoneinfo la usa para Europe/Madrid: hora de los
+# riegos del firmware y el aviso semanal de las 11:00).
+tzdata==2026.5

@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from sqlalchemy.orm import Session
 
@@ -11,22 +12,17 @@ from app.models.health_summary import HealthSummary
 from app.models.plant_photo_diagnosis import PlantPhotoDiagnosis
 from app.services import health_analysis, mqtt_client
 from app.services.notify import notify_owner
+from app.services.weekly_message import build_weekly_notification
 
 logger = logging.getLogger("ecoplant.health_scheduler")
 
 # Cada cuanto se considera que un dispositivo "toca" resumen nuevo. Se
 # compara contra la fecha guardada en BD (no un temporizador en memoria),
 # para que sobreviva a un reinicio del servicio sin duplicar ni saltarse
-# resumenes.
+# resumenes. El calculo NO avisa por push: el aviso es semanal, aparte
+# (ver _send_weekly_notifications) - los resumenes siguen calculandose
+# cada 4 dias porque el ajuste automatico de riego necesita dos seguidos.
 DUE_INTERVAL_DAYS = health_analysis.WINDOW_DAYS
-
-# Si la ultima foto analizada es mas antigua que esto (o no existe
-# ninguna), el aviso periodico deja de mandar el mensaje de solo-sensores
-# (que "dice cosas a medias" sin la foto, ver plant_vision.py) y en su
-# lugar recuerda subir una nueva - mayor que DUE_INTERVAL_DAYS porque
-# hacer una foto es mas esfuerzo que una lectura pasiva de sensores, no
-# tiene sentido pedirla con la misma frecuencia.
-PHOTO_STALE_DAYS = 10
 
 # Ajuste automatico de la duracion de riego: confirmado con Luis
 # (2026-10-24). Se basa solo en pct_tiempo_bajo_minimo via el veredicto
@@ -109,26 +105,6 @@ def _run_due_devices() -> None:
                 db.add(summary)
                 db.commit()
                 _maybe_auto_tune_duration(device, db, result.verdict, last, anterior_a_last)
-                if result.verdict != "datos_insuficientes":
-                    photo = db.get(PlantPhotoDiagnosis, device.device_id)
-                    photo_stale = photo is None or photo.created_at < datetime.now(timezone.utc) - timedelta(
-                        days=PHOTO_STALE_DAYS
-                    )
-                    if photo_stale:
-                        # Sin foto reciente, el mensaje de solo-sensores de
-                        # arriba (result.message) no cuenta la parte visual
-                        # del diagnostico - mejor pedir la foto que mandar
-                        # un aviso a medias. result.message no se toca (se
-                        # guarda igual en la BD, lo sigue usando la app),
-                        # esto solo cambia el texto del push.
-                        notify_owner(
-                            device.device_id,
-                            "Actualiza el diagnóstico de tu planta",
-                            "Hace tiempo que no subes una foto de {device_name} - el diagnóstico de ahora mismo "
-                            "solo tiene en cuenta los sensores. Sube una nueva para ver el estado completo.",
-                        )
-                    else:
-                        notify_owner(device.device_id, "Resumen de salud de tu planta", result.message)
             except Exception:
                 logger.exception("Fallo calculando el resumen de salud de %s", device.device_id)
                 db.rollback()
@@ -136,9 +112,63 @@ def _run_due_devices() -> None:
         db.close()
 
 
+def _send_weekly_notifications() -> None:
+    # Un aviso por macetero, con lo que haya del ultimo resumen guardado
+    # (puede tener hasta ~4 dias, es lo que se pidio: "lo que haya del
+    # ultimo resumen") mas el recordatorio de la foto si hace falta - ver
+    # app/services/weekly_message.py. Sustituye al aviso que antes salia
+    # con cada resumen de salud y al recordatorio de foto aparte a los 10
+    # dias: ahora es uno solo, semanal.
+    db = SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        devices = db.query(Device).filter(Device.claimed_at.isnot(None)).all()
+        for device in devices:
+            # Mismo aislamiento por dispositivo que en _run_due_devices.
+            try:
+                last = (
+                    db.query(HealthSummary)
+                    .filter(HealthSummary.device_id == device.device_id)
+                    .order_by(HealthSummary.created_at.desc())
+                    .first()
+                )
+                photo = db.get(PlantPhotoDiagnosis, device.device_id)
+                notification = build_weekly_notification(
+                    last.verdict if last else None,
+                    last.message if last else None,
+                    photo.created_at if photo else None,
+                    now,
+                )
+                if notification is not None:
+                    notify_owner(device.device_id, *notification)
+            except Exception:
+                logger.exception("Fallo enviando el aviso semanal de %s", device.device_id)
+                db.rollback()
+    finally:
+        db.close()
+
+
 def start() -> None:
-    _scheduler.add_job(_run_due_devices, "cron", hour=9, id="health_summary_daily")
+    # Resumenes: cada dia a las 06:00 UTC se comprueba cuales "tocan"
+    # (cada 4 dias, ver DUE_INTERVAL_DAYS). Antes a las 09:00 UTC, pero
+    # en verano eso es exactamente las 11:00 de Madrid y coincidia al
+    # minuto con el aviso semanal - asi el aviso siempre usa un resumen
+    # ya calculado.
+    _scheduler.add_job(_run_due_devices, "cron", hour=6, id="health_summary_daily")
+    # Aviso semanal: domingo a las 11:00 hora de Madrid (confirmado con
+    # Luis, 2026-10-26), con su propio huso para que siga siendo las 11
+    # tras los cambios de hora. coalesce/grace: si el hilo del scheduler
+    # llega tarde (hasta 1h) se envia igualmente, una sola vez.
+    _scheduler.add_job(
+        _send_weekly_notifications,
+        CronTrigger(day_of_week="sun", hour=11, minute=0, timezone="Europe/Madrid"),
+        id="health_weekly_notification",
+        coalesce=True,
+        misfire_grace_time=3600,
+    )
     _scheduler.start()
+    weekly = _scheduler.get_job("health_weekly_notification")
+    logger.info("Aviso semanal programado; proxima ejecucion: %s", weekly.next_run_time if weekly else "?")
 
 
 def stop() -> None:

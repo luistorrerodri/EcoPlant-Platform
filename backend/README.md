@@ -73,10 +73,11 @@ backend/
 │   ├── security.py     # hash de contraseñas/códigos, JWT
 │   ├── deps.py          # dependencias de autenticación (get_current_user, get_current_admin)
 │   ├── models/          # tablas SQLAlchemy (User, Location, Device, PlantType, RefreshToken,
-│   │                    #   WateringEvent, HealthSummary, PlantPhotoDiagnosis)
+│   │                    #   WateringEvent, HealthSummary, PlantPhotoDiagnosis, PushToken)
 │   ├── schemas/         # modelos Pydantic de entrada/salida
 │   ├── routers/         # endpoints (auth, locations, devices, plant_types, internal, admin)
-│   └── services/        # clientes de MQTT, InfluxDB, análisis de salud y diagnóstico visual con IA
+│   └── services/        # clientes de MQTT, InfluxDB, análisis de salud y diagnóstico visual con IA,
+│                        #   límites de login (rate_limit), origen de riegos, aviso semanal
 ├── alembic/              # migraciones de base de datos
 └── scripts/              # utilidades de línea de comandos
 ```
@@ -108,6 +109,9 @@ Debe devolver `{"status":"ok"}`. Para probar el flujo completo, usa el Swagger (
 7. `POST /api/devices/{device_id}/photo-diagnosis` (subiendo una foto real como `multipart/form-data`) → valoración de un modelo con visión, cruzando la foto con el histórico de sensores
 8. `POST /api/devices/{device_id}/pause-sensor` → `sensor_pausado_hasta` 10 minutos en el futuro; `GET /api/internal/device-configs` debe reflejar `sensorPausado: true` para ese dispositivo hasta que expire o se llame a `POST /api/devices/{device_id}/resume-sensor`
 9. `GET /api/devices/{device_id}/latest-readings` → último valor real de cada campo, sin agregar — a diferencia de `/readings`, debe coincidir con lo que marca el dispositivo en ese mismo instante
+10. `GET /api/devices/status` → `{device_id: {online, last_seen_at}}` de todos tus dispositivos (conectado = último dato de humedad de suelo en InfluxDB de hace ≤ 60 s)
+11. `GET /api/devices/{device_id}/watering-events` → últimos riegos (`?limit=`, 30 por defecto, máx. 100) con `timestamp` en UTC, `duration_ms` y `origen` (`manual` / `automatico` / `null` en los anteriores al 2026-10-26)
+12. Seis `POST /api/auth/login` fallidos seguidos con el mismo email → `429` con `Retry-After`; `POST /api/auth/push-token` registra el token de ese móvil (varios por cuenta) y `POST /api/auth/push-token/unregister` lo borra
 
 ## Notas
 

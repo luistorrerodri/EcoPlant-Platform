@@ -3,6 +3,7 @@ from app.models.health_summary import HealthSummary
 from app.models.location import Location
 from app.models.plant_photo_diagnosis import PlantPhotoDiagnosis
 from app.models.plant_type import PlantType
+from app.models.push_token import PushToken
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.models.watering_event import WateringEvent
@@ -12,6 +13,7 @@ __all__ = [
     "Location",
     "Device",
     "PlantType",
+    "PushToken",
     "RefreshToken",
     "WateringEvent",
     "HealthSummary",

@@ -14,12 +14,19 @@ class WateringEvent(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     device_id: Mapped[str] = mapped_column(String(100), ForeignKey("devices.device_id"))
 
-    # Timestamp y duracion tal cual los reporta el propio firmware en el
-    # evento "riego_completado" (ver ack["timestamp"]/ack["duracion_ms"]
-    # en macetero_produccion_6.ino) - no la hora en la que el backend
-    # recibe el mensaje MQTT, que puede llegar con un pequeño retraso.
+    # Timestamp y duracion que reporta el propio firmware en el evento
+    # "riego_completado" (ver ack["timestamp"]/ack["duracion_ms"] en
+    # macetero_produccion_6.ino) - no la hora en la que el backend recibe
+    # el mensaje MQTT. OJO: el timestamp del firmware es hora local de
+    # Madrid etiquetada como UTC, se convierte antes de guardarlo (ver
+    # app/services/time_utils.py) - aqui siempre hay un instante UTC real.
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     duration_ms: Mapped[int] = mapped_column(Integer)
+
+    # "manual" | "automatico" | NULL (riegos anteriores a que existiera
+    # esta columna - se quedan sin etiqueta, no se inventa). Ver
+    # app/services/watering_origin.py para como se decide.
+    origen: Mapped[str | None] = mapped_column(String(20))
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
